@@ -1,0 +1,214 @@
+---
+title: "clean_data.Rmd"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(totalcensus)
+library(maps)
+```
+# Load Data
+
+```{r}
+
+# average annual teacher salary by state (2018-2019) data source: 
+# https://nces.ed.gov/programs/digest/d19/tables/dt19_211.60.asp
+
+avg_salary_2018 <- read.csv("raw_data/avg_teacher_salary.csv")
+
+# covid-19 case count by state source: https://github.com/nytimes/covid-19-data.
+
+covid_nytimes <- read.csv("raw_data/covid_nytimes.csv")
+
+# state population as of July 2019 data source:
+# https://www.census.gov/data/datasets/time-series/demo/popest/2010s-state-total
+# .html#par_textimage_500989927
+
+state_pop <- read.csv("raw_data/state_pop.csv")
+
+# more data I'll probably use:
+# Ipsos/NPR Survey on teachers during COVID-19:
+# https://www.ipsos.com/sites/default/files/ct/news/documents/2020-08/
+# topline-npr-teachers-covid-poll-080620.pdf
+# school outbreak data:
+# https://www.nytimes.com/interactive/2020/09/21/us/covid-schools.html
+
+
+# IGNORE
+wages_q1_2020 <- read.csv("raw_data/6111.csv") 
+```
+
+
+# Clean Data
+
+```{r}
+
+
+# clean average teacher salary data 
+
+avg_teacher_sal_edited <- avg_salary_2018 %>%
+  
+  # make all rows of the state column lowercase and get rid of any whitespace
+  # at the head or tail to make sure it can join with the state_map dataset.
+  
+  mutate(region = tolower(trimws(state)),
+         
+         # get rid of commas in the value column so it can later be turned into
+         # a numeric column.
+         
+         value = gsub(",", "", value)) %>%
+  mutate(value = as.numeric(value)) %>%
+  
+  # arrange alphabetically so the join process with state_map is seamless.
+  
+  arrange(region) %>%
+  
+  # get rid of extraneous columns.
+  select(-c(X, state))
+
+# clean state population data
+
+state_pop <- state_pop %>%
+  
+  # get rid of the weird period that for some reason starts every row in state
+  # and rename the column to region.
+  
+  mutate(region = tolower(str_remove((state), "[[:punct:] ]+")))
+
+# clean covid data
+
+covid_nyt_with_pop <- covid_nytimes %>%
+  
+  # make the state column lowercase and rename it so it can join with 
+  # states_map.
+  
+  mutate(region = tolower(state)) %>%
+  group_by(region) %>%
+  
+  # collapse the dataset so each state has a total_cases and total_deaths
+  # variable made up of the sum of the cases & deaths columns.
+  
+  summarize(total_cases = sum(cases), total_deaths = sum(deaths), 
+            .groups = "drop") %>%
+  
+  # join with the state_pop tibble.
+  
+  full_join(., state_pop, by = "region") %>%
+  drop_na() %>%
+  rename(pop = "X2019_pop") %>%
+  
+  # convert the population column to numeric by getting rid of commas and then
+  # running as.numeric().
+  
+  mutate(pop = gsub(",", "", pop)) %>%
+  mutate(pop = as.numeric(pop)) %>%
+  
+  # create a cases_per_capita column which consists of the total cases in each 
+  # state divided by its population, to better visualize the covid-19 data.
+  
+  mutate(cases_per_capita = total_cases/pop)
+
+# INGORE THIS NEXT BLOCK OF CODE - I'm still deciding whether or not I want to 
+# use this data!
+
+wages_q1_2020_edited <- wages_q1_2020 %>%
+  select(area_fips, avg_wkly_wage, own_code, lq_avg_wkly_wage) %>%
+  slice(1:5444) %>%
+  mutate(area_fips = as.numeric(area_fips)) %>%
+  filter((area_fips %% 1000) == 0) %>%
+  mutate(area_fips = area_fips / 1000,
+         area_fips = case_when(area_fips < 10  ~ paste("0", 
+                                                       as.character(area_fips),
+                                                       sep = ""),
+                               TRUE ~ as.character(area_fips)),
+         area_name = convert_fips_to_names(area_fips)) %>%
+  group_by(area_name, area_fips) %>%
+  summarize(avg_ann_wage_all = mean(avg_wkly_wage * 52),
+            lq_avg_wkly_wage_all = mean(lq_avg_wkly_wage), 
+            .groups = "drop") %>%
+  mutate(region = map(area_name,
+                                ~ 
+                        tolower(state.name[which(state.abb == .)]))) %>%
+  filter(area_fips != "11" & area_fips != "72" & area_fips!= "78") %>%
+  unnest(region)
+
+```
+
+plot:
+
+```{r}
+
+# load states_map data so I can map my tibbles.
+
+states_map <- map_data("state")
+
+# join the salary data and states_map data by region, so that the salary data
+# for each state can be mapped to all of the necessary latitutes / longitudes.
+# also, deselect unnecssary columns!
+
+salary_map <- left_join(states_map, avg_teacher_sal_edited, by = "region") %>%
+  select(-c(subregion))
+
+# do the same for the covid data.
+
+covid_map <- left_join(states_map, covid_nyt_with_pop, by = "region") %>%
+  select(-c(subregion))
+
+# IGNORE
+wages_map <- left_join(states_map, wages_q1_2020_edited, by = "region")
+
+# write the salary and covid data to csv files so they can be accessed in Shiny.
+
+write_csv(salary_map, "raw_data/salary_map.csv")
+write_csv(covid_map, "raw_data/covid_map.csv")
+
+# test the map code for salary & covid data so they work in the Shiny app.
+
+covid_map %>%
+  
+  # plot the graph using latitude and longitude from the states_map dataset.
+  
+  ggplot(aes(long, lat, group = group))+
+  
+  # fill the state outlines with cases_per_capita, and make the spaces in
+  # between each state white.
+  
+  geom_polygon(aes(fill = cases_per_capita), color = "white") + 
+  
+  # edit the colors and direction of the color (so that cooler hues 
+  # correspond to smaller case counts) and add labels to the graph.
+  
+  scale_fill_viridis_c(direction = -1, option = "A", 
+                       name = "Total Cases per Capita") + 
+  theme_void() + labs(
+    title = "Total COVID-19 Cases per Capita by State, as of 10/16", 
+    caption = "Source: New York Times")
+
+salary_map %>%
+  
+  # use the same code as the covid data map, but with a different color palette,
+  # different labels, and a different fill to correspond with the salary_map
+  # dataframe.
+  
+  ggplot(aes(long, lat, group = group))+
+  geom_polygon(aes(fill = value), color = "white") + theme_void() +
+  scale_fill_viridis_c(direction = -1, option = "D", name = "Salary") + 
+  labs(title = "Average Annual Teacher Salary by State, 2018-2019", 
+    caption = "Source: National Center for Education Statistics")
+
+
+# FUTURE DATA IDEAS:
+# get gender data for teachers from total census - the acs dataset
+# figure out how to map survey data links listed above.
+
+# IGNORE
+
+wages_map %>%
+  ggplot(aes(long, lat, group = group))+
+  geom_polygon(aes(fill = avg_ann_wage_all), color = "white") + 
+  scale_fill_distiller(direction = 0) + theme_void()
+
+```
+
