@@ -63,11 +63,42 @@ wages_q1_2020 <- read.csv("raw_data/6111.csv")
 county_data_edited <- county_data %>%
   slice(1:5444) %>%
   filter(own_code != 5) %>%
+  select(c(area_fips, avg_wkly_wage, own_code)) %>%
   rename(fips_code = "area_fips") %>%
-  mutate(fips_code = as.numeric(fips_code)) %>%
-  left_join(., fips_codes, by = "fips_code")
+  mutate(fips_code = as.numeric(fips_code),
+         avg_wkly_wage = as.numeric(avg_wkly_wage)) %>%
+  left_join(., fips_codes, by = "fips_code") %>%
+  mutate(avg_wkly_wage = na_if(avg_wkly_wage, 0),
+         county = tolower(county)) %>%
+  drop_na() %>%
+  rename(subregion = "county")
 
-county_data_edited 
+county_wage_data <- county_data_edited %>%
+  group_by(subregion) %>%
+  summarize(avg_wkly_wage_all = mean(avg_wkly_wage), .groups = "drop")
+  
+county_map <- map_data("county")
+
+county_wage_map <- left_join(county_map, county_wage_data, 
+                             by = "subregion") %>%
+  select(-c(region))
+
+# sample 50 random counties and get the school districts for those counties
+# rep = 2 to account for cases in which the school district doesn't have info
+# online; then create an excel file w measures: class type (inperson/online/
+# hybrid), number of students, county population & how much of the county the
+# school district makes up, covid cases per county, county avg weekly wage for 
+# teachers
+
+county_wage_map %>%
+  ggplot(aes(long, lat, group = group))+
+  geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+  scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage")
+```
+
+
+
+```{r}
 # after this, merge with school district data
 
 # clean average teacher salary data 
