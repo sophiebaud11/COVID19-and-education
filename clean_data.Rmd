@@ -9,6 +9,12 @@ library(tidyverse)
 library(totalcensus)
 library(maps)
 ```
+# upcoming plans:
+
+* make county-based map
+* translate that into school district data (ex. have the percentage of county population each school district takes up)
+* look at the thing you wrote in the notes app
+
 # Load Data
 
 ```{r}
@@ -17,6 +23,15 @@ library(maps)
 # https://nces.ed.gov/programs/digest/d19/tables/dt19_211.60.asp
 
 avg_salary_2018 <- read.csv("raw_data/avg_teacher_salary.csv")
+
+
+#county data from: Quarterly Census of Employment and Wages (https://data.bls.gov/cew/apps/table_maker/v4/table_maker.htm#type=1&year=2020&qtr=1&own=3&ind=6111&supp=0)
+
+county_data <- read.csv("raw_data/county_wages.csv")
+
+# source: https://www.nrcs.usda.gov/wps/portal/nrcs/detail/national/home/?cid=nrcs143_013697
+
+fips_codes <- read.csv("raw_data/fips_codes.csv")
 
 # covid-19 case count by state source: https://github.com/nytimes/covid-19-data.
 
@@ -45,6 +60,15 @@ wages_q1_2020 <- read.csv("raw_data/6111.csv")
 
 ```{r}
 
+county_data_edited <- county_data %>%
+  slice(1:5444) %>%
+  filter(own_code != 5) %>%
+  rename(fips_code = "area_fips") %>%
+  mutate(fips_code = as.numeric(fips_code)) %>%
+  left_join(., fips_codes, by = "fips_code")
+
+county_data_edited 
+# after this, merge with school district data
 
 # clean average teacher salary data 
 
