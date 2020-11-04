@@ -14,28 +14,35 @@ library(maps)
 
 # load data cleaned in clean_data.Rmd
 
-map_data_covid <- read_csv("raw_data/covid_map.csv")
-map_data_salary <- read_csv("raw_data/salary_map.csv")
+county_wage_map <- read_csv("raw_data/county_wage_map.csv")
+county_covid_map <- read_csv("raw_data/county_covid_map.csv")
+county_samples <- read_csv("raw_data/county_samples.csv")
+
 
 
 ui <- navbarPage(
     "COVID-19 Impact on Teachers",
-    tabPanel("Model",
+    tabPanel("Introduction",
              fluidPage(
+                 
+                 radioButtons("sampled", "Sampled?",
+                              c("Yes" = "sample",
+                                "No" = "nosample")),
+                 
+                 fluidRow(
+                     
+                     column(6,
+                            plotOutput("map1")      
+                     ),
+                     
+                     column(6,
+                            plotOutput("map2")
+                     )
+                 ),
+                 
                  titlePanel("Contextual Maps"),
-                 sidebarLayout(
-                     sidebarPanel(
-                         
-                         # create a select box that allows users to choose which
-                         # plot to see.
-                         
-                         selectInput("view", "Choose a View",
-                                     c("COVID Cases by State" = "covid",
-                                       "Average Teacher Salary" = "salary"))
-                         ),
-                     mainPanel(
-                         plotOutput("map")
-                     ))
+                     
+                     # show plots in a tabset panel to improve UI!
                 )),
     
     # Create a new panel the user can access in the navigation bar which will
@@ -71,39 +78,120 @@ server <- function(input, output) {
     # create 2 reactive objects containing the map data for each plot. 
     # (map code is commented on in the clean_data.Rmd file!)
     
-    covid <- reactive({
-        ggplot(map_data_covid, aes(long, lat, group = group))+
-            geom_polygon(aes(fill = cases_per_capita), color = "white") + 
-            scale_fill_viridis_c(direction = -1, option = "A", 
-                                 name = "Total Cases per Capita") + 
-            theme_void() + labs(
-                title = "Total COVID-19 Cases per Capita by State, as of 10/16", 
-                caption = "Source: New York Times")
+    sample1 <- reactive({
+            
+        # wage plot 
+        
+        county_wage_map %>%
+            mutate(avg_wkly_wage_all = ifelse(state_county %in% 
+                                                  county_samples$county_sample,
+                                              avg_wkly_wage_all, NA)) %>%
+            ggplot(aes(long, lat, group = group)) +
+            geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+            scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage",
+                                 na.value = "white") + 
+            theme(plot.background = element_rect(fill = "#c4c4c4"), 
+                  legend.position = "bottom",
+                  plot.title = element_text(color = "white", face = "bold"),
+                  plot.subtitle = element_text(color = "white", face = "bold"),
+                  plot.caption = element_text(color = "white", face = "bold"),
+                  legend.text = element_text(color = "white", face = "bold"),
+                  legend.title = element_text(color = "white", face = "bold")) +
+            labs(title = " Average Weekly Wages for Educators per County", 
+                      subtitle = " Limited to Sampled Counties",
+                      caption = "Source: Bureau of Labor Statistics ")
+    })
+    sample2 <- reactive ({
+        
+        # covid plot 
+        
+        county_covid_map %>%
+            mutate(cases_per_capita = ifelse(state_county %in% 
+                                                 county_samples$county_sample,
+                                             cases_per_capita, NA)) %>%
+            ggplot(aes(long, lat, group = group)) + 
+            geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
+            scale_fill_viridis_c(direction = -1, option = "A", name = 
+                                     "Cases per Capita",
+                                 na.value = "white") + 
+            theme(plot.background = element_rect(fill = "#c4c4c4"), 
+                  legend.position = "bottom",
+                  plot.title = element_text(color = "white", face = "bold"),
+                  plot.subtitle = element_text(color = "white", face = "bold"),
+                  plot.caption = element_text(color = "white", face = "bold"),
+                  legend.text = element_text(color = "white", face = "bold"),
+                  legend.title = element_text(color = "white", face = "bold")) +
+            labs(title = 
+                   " Total COVID-19 Cases per Capita by County, as of 10/16", 
+                      subtitle = " Limited to Sampled Counties",
+                      caption = "Source: New York Times ")
+        
     })
     
-    salary <- reactive({
-        ggplot(map_data_salary, aes(long, lat, group = group))+
-            geom_polygon(aes(fill = value), color = "white") + theme_void() +
-            scale_fill_viridis_c(direction = -1, option = "D", name = "Salary") + 
-            labs(title = "Average Annual Teacher Salary by State, 2018-2019", 
-                 caption = "Source: National Center for Education Statistics")
+    nosample1 <- reactive({
+               
+        # wage plot
+        
+        county_wage_map %>%
+            ggplot(aes(long, lat, group = group)) +
+            geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+            scale_fill_viridis_c(direction = -1, option = "D", name = 
+                                     "Weekly Wage",
+                                 na.value = "white") + 
+            theme(plot.background = element_rect(fill = "#c4c4c4"), 
+                  legend.position = "bottom",
+                  plot.title = element_text(color = "white", face = "bold"),
+                  plot.caption = element_text(color = "white", face = "bold"),
+                  legend.text = element_text(color = "white", face = "bold"),
+                  legend.title = element_text(color = "white", face = "bold")) + 
+            labs(title = " Average Weekly Wages for Educators per County", 
+                      caption = "Source: Bureau of Labor Statistics ")
     })
     
-    # create a reactive object which responds to the user's selection in the 
+    nosample2 <- reactive ({
+        # covid plot 
+        
+        county_covid_map %>%
+            ggplot(aes(long, lat, group = group)) + 
+            geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
+            scale_fill_viridis_c(direction = -1, option = "A", name = 
+                                     "Cases per Capita",
+                                 na.value = "white") + 
+            theme(plot.background = element_rect(fill = "#c4c4c4"), 
+                  legend.position = "bottom",
+                  plot.title = element_text(color = "white", face = "bold"),
+                  plot.caption = element_text(color = "white", face = "bold"),
+                  legend.text = element_text(color = "white", face = "bold"),
+                  legend.title = element_text(color = "white", face = "bold")) +
+            labs(title = 
+                   " Total COVID-19 Cases per Capita by County, as of 10/16", 
+                      caption = "Source: New York Times ")
+        
+    })
+    
+    # create 2 reactive objects which responds to the user's selection in the 
     # input "view", and calls the relevant reactive object as a result.
     
-    graph <- reactive({
-        switch(input$view,
-               "covid" = covid(),
-               "salary" = salary()
+    graphs1 <- reactive({
+        switch(input$sampled,
+               "sample" = sample1(),
+               "nosample" = nosample1()
         )
     })
-    
-    # for the outputted plot, call the "graph" reactive object!
-    
-    output$map<-renderPlot({
-       graph()
+    graphs2 <- reactive({
+        switch(input$sampled,
+               "sample" = sample2(),
+               "nosample" = nosample2()
+        )
     })
+    # for the outputted plot, call the "graph" reactive objects!
+    
+    output$map1 <- renderPlot({
+       graphs1()
+    })
+    output$map2 <- renderPlot({
+        graphs2()
+    })    
 }
 
 # Run the application 

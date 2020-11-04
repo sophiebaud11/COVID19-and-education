@@ -8,12 +8,29 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(totalcensus)
 library(maps)
+library(gganimate)
 ```
 # upcoming plans:
 
-* make county-based map
-* translate that into school district data (ex. have the percentage of county population each school district takes up)
-* look at the thing you wrote in the notes app
+## milestone 6: make a table of the sampled school districts/counties and some
+## key info (i.e. population, proportion of county, covid cases, etc.)
+
+* translate county data into school district data (ex. have the percentage of county population each school district takes up) 
+* use https://www.nhgis.org/ to get school district data
+* variables for the dataset:
+  * county covid cases (pay attention to time & edit based on proportion of 
+  district to county)
+  * in person/hybrid/virtual (code)
+  * teacher wages
+  * political leaning of the area
+  * population of students
+* look at relationships with this variable
+* this is less of a predictive thing and more of a survey of some of what other
+counties are doing
+* if you find a list of school districts, take a random selection of those,
+and then change the map to be a county
+* three stages: intro maps, survey of sampled counties, and anlalysis of teacher
+survey
 
 # Load Data
 
@@ -31,17 +48,35 @@ county_data <- read.csv("raw_data/county_wages.csv")
 
 # source: https://www.nrcs.usda.gov/wps/portal/nrcs/detail/national/home/?cid=nrcs143_013697
 
-fips_codes <- read.csv("raw_data/fips_codes.csv")
+state_names <- tibble(state.abb, state.name) %>%
+  rename(state = "state.abb")
+
+fips_codes <- read.csv("raw_data/fips_codes.csv") %>%
+  left_join(., state_names, by = "state")
 
 # covid-19 case count by state source: https://github.com/nytimes/covid-19-data.
 
 covid_nytimes <- read.csv("raw_data/covid_nytimes.csv")
+
+# covid-19 case count by county source: 
+# https://github.com/nytimes/covid-19-data. separate csv file into multiple
+# columns.
+
+county_covid_nyt <- read.csv("raw_data/county_covid.csv") %>%
+  separate(col = "date.county.state.fips.cases.deaths", sep = ",", 
+           into = c("date", "county", "state", "fips", "cases", "deaths"))
 
 # state population as of July 2019 data source:
 # https://www.census.gov/data/datasets/time-series/demo/popest/2010s-state-total
 # .html#par_textimage_500989927
 
 state_pop <- read.csv("raw_data/state_pop.csv")
+
+# 2019 county populations (estimated) from:
+# https://www.census.gov/data/datasets/time-series/demo/popest/2010s-counties-
+# total.html#par_textimage_70769902.
+
+county_pop <- read.csv("raw_data/census_county_population.csv")
 
 # more data I'll probably use:
 # Ipsos/NPR Survey on teachers during COVID-19:
@@ -58,6 +93,8 @@ wages_q1_2020 <- read.csv("raw_data/6111.csv")
 
 # Clean Data
 
+## County Data
+
 ```{r}
 
 county_data_edited <- county_data %>%
@@ -71,35 +108,58 @@ county_data_edited <- county_data %>%
   mutate(avg_wkly_wage = na_if(avg_wkly_wage, 0),
          county = tolower(county)) %>%
   drop_na() %>%
-  rename(subregion = "county")
+  rename(subregion = "county") %>%
+  mutate(state_county = tolower(paste(state.name, subregion, sep = "")))
 
 county_wage_data <- county_data_edited %>%
-  group_by(subregion) %>%
+  group_by(state_county) %>%
   summarize(avg_wkly_wage_all = mean(avg_wkly_wage), .groups = "drop")
   
-county_map <- map_data("county")
 
-county_wage_map <- left_join(county_map, county_wage_data, 
-                             by = "subregion") %>%
-  select(-c(region))
+# clean county population data 
 
+county_pop_edited <- county_pop %>%
+  filter(str_detect(CTYNAME, "County") | str_detect(CTYNAME, "Parish")) %>%
+  rename(state = "STNAME") %>%
+  mutate(subregion = if_else(str_detect(CTYNAME, "County"),  
+                             tolower(trimws(gsub("County", "", CTYNAME))), 
+         tolower(trimws(gsub("Parish", "", CTYNAME)))))%>%
+  mutate(state_county = tolower(paste(state, subregion, sep = "")))
+
+# clean & wrangle covid case count per county data the same way I wrangled
+# the state data!
+
+county_covid_edited <- county_covid_nyt %>%
+  mutate(subregion = tolower(county),
+         cases = as.numeric(cases),
+         deaths = as.numeric(deaths),
+         state = tolower(state)) %>%
+  select(-c(county)) %>%
+  mutate(state_county = tolower(paste(state, subregion, sep = ""))) %>%
+  group_by(state_county) %>%
+  summarize(total_cases = sum(cases), total_deaths = sum(deaths), 
+            .groups = "drop") %>%
+  full_join(., county_pop_edited, by = "state_county") %>%
+  drop_na() %>%
+  rename(pop = "POPESTIMATE2019",
+         region = "state") %>%
+  mutate(cases_per_capita = total_cases/pop) %>%
+  select(-c(CTYNAME))
+  
 # sample 50 random counties and get the school districts for those counties
 # rep = 2 to account for cases in which the school district doesn't have info
 # online; then create an excel file w measures: class type (inperson/online/
 # hybrid), number of students, county population & how much of the county the
 # school district makes up, covid cases per county, county avg weekly wage for 
 # teachers
+county_sample <- sample(county_wage_data$state_county, size = 50, replace = FALSE)
 
-county_wage_map %>%
-  ggplot(aes(long, lat, group = group))+
-  geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
-  scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage")
+county_sample
 ```
 
-
+## State Data
 
 ```{r}
-# after this, merge with school district data
 
 # clean average teacher salary data 
 
@@ -191,11 +251,14 @@ wages_q1_2020_edited <- wages_q1_2020 %>%
 
 ```
 
-plot:
+# Plots:
 
 ```{r}
 
-# load states_map data so I can map my tibbles.
+# load states_map & county_map data so I can map my tibbles.
+
+county_map <- map_data("county") %>%
+  mutate(state_county = tolower(paste(region, subregion, sep = ""))) 
 
 states_map <- map_data("state")
 
@@ -211,13 +274,109 @@ salary_map <- left_join(states_map, avg_teacher_sal_edited, by = "region") %>%
 covid_map <- left_join(states_map, covid_nyt_with_pop, by = "region") %>%
   select(-c(subregion))
 
-# IGNORE
+county_covid_map <- left_join(county_map, county_covid_edited, 
+                              by = "state_county")
+
+# do the same for the county wage data
+
+county_wage_map <- left_join(county_map, county_wage_data, 
+                             by = c("state_county"))
+
 wages_map <- left_join(states_map, wages_q1_2020_edited, by = "region")
 
 # write the salary and covid data to csv files so they can be accessed in Shiny.
 
-write_csv(salary_map, "raw_data/salary_map.csv")
-write_csv(covid_map, "raw_data/covid_map.csv")
+write_csv(county_wage_map, "raw_data/county_wage_map.csv")
+write_csv(county_covid_map, "raw_data/county_covid_map.csv")
+write_csv(tibble(county_sample), "raw_data/county_samples.csv")
+
+# plot county covid and wage maps!
+
+
+county_covid_map %>%
+  ggplot(aes(long, lat, group = group)) + 
+  geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
+  scale_fill_viridis_c(direction = -1, option = "A", name = "Cases per Capita",
+                       na.value = "white") + 
+  theme(plot.background = element_rect(fill = "#c4c4c4"), 
+        legend.position = "bottom",
+        plot.title = element_text(color = "white", face = "bold"),
+        plot.caption = element_text(color = "white", face = "bold"),
+        legend.text = element_text(color = "white", face = "bold"),
+        legend.title = element_text(color = "white", face = "bold")) + labs(
+    title = " Total COVID-19 Cases per Capita by County, as of 10/16", 
+    caption = "Source: New York Times ")
+
+
+county_wage_map %>%
+  ggplot(aes(long, lat, group = group)) +
+  geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+  scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage",
+                       na.value = "white") + 
+  theme(plot.background = element_rect(fill = "#c4c4c4"), 
+        legend.position = "bottom",
+        plot.title = element_text(color = "white", face = "bold"),
+        plot.caption = element_text(color = "white", face = "bold"),
+        legend.text = element_text(color = "white", face = "bold"),
+        legend.title = element_text(color = "white", face = "bold")) + labs(
+    title = " Average Weekly Wages for Educators per County", 
+    caption = "Source: Bureau of Labor Statistics ")
+
+# plot sampled maps
+
+county_covid_map %>%
+  mutate(cases_per_capita = ifelse(state_county %in% county_sample,
+                                     cases_per_capita, NA)) %>%
+  ggplot(aes(long, lat, group = group)) + 
+  geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
+  scale_fill_viridis_c(direction = -1, option = "A", name = "Cases per Capita",
+                       na.value = "white") + 
+  theme(plot.background = element_rect(fill = "#c4c4c4"), 
+        legend.position = "bottom",
+        plot.title = element_text(color = "white", face = "bold"),
+        plot.subtitle = element_text(color = "white", face = "bold"),
+        plot.caption = element_text(color = "white", face = "bold"),
+        legend.text = element_text(color = "white", face = "bold"),
+        legend.title = element_text(color = "white", face = "bold")) + labs(
+    title = " Total COVID-19 Cases per Capita by County, as of 10/16", 
+    subtitle = " Limited to Sampled Counties",
+    caption = "Source: New York Times ")
+
+
+county_wage_map %>%
+  mutate(avg_wkly_wage_all = ifelse(state_county %in% county_sample,
+                                     avg_wkly_wage_all, NA)) %>%
+  ggplot(aes(long, lat, group = group)) +
+  geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+  scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage",
+                       na.value = "white") + 
+  theme(plot.background = element_rect(fill = "#c4c4c4"), 
+        legend.position = "bottom",
+        plot.title = element_text(color = "white", face = "bold"),
+        plot.subtitle = element_text(color = "white", face = "bold"),
+        plot.caption = element_text(color = "white", face = "bold"),
+        legend.text = element_text(color = "white", face = "bold"),
+        legend.title = element_text(color = "white", face = "bold")) + labs(
+    title = " Average Weekly Wages for Educators per County", 
+    subtitle = " Limited to Sampled Counties",
+    caption = "Source: Bureau of Labor Statistics ")
+
+# NEED HELP WITH LATER - trying to animate between sampled and unsampled
+# graphs!!!
+
+animated_map <- county_wage_map %>%
+  ggplot(aes(long, lat, group = group)) +
+  geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+  scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage",
+                       na.value = "white") + 
+  theme(plot.background = element_rect(fill = "#c4c4c4"), 
+        legend.position = "bottom")
+        
+
+animated_map + 
+  transition_manual(frames = c(state_county %in% county_wage_data, state_county %in% county_sample))
+  
+
 
 # test the map code for salary & covid data so they work in the Shiny app.
 
