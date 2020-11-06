@@ -17,13 +17,13 @@ library(maps)
 county_wage_map <- read_csv("raw_data/county_wage_map.csv")
 county_covid_map <- read_csv("raw_data/county_covid_map.csv")
 county_samples <- read_csv("raw_data/county_samples.csv")
-
-
-
+district_samples <- read_csv("raw_data/sample_districts_edited.csv")
+district_samples_table <- read_csv("raw_data/sample_districts_table.csv")
 ui <- navbarPage(
     "COVID-19 Impact on Teachers",
     tabPanel("Introduction",
              fluidPage(
+                 titlePanel("Contextual Maps"),
                  
                  radioButtons("sampled", "Sampled?",
                               c("Yes" = "sample",
@@ -39,11 +39,15 @@ ui <- navbarPage(
                             plotOutput("map2")
                      )
                  ),
-                 
-                 titlePanel("Contextual Maps"),
-                     
                      # show plots in a tabset panel to improve UI!
                 )),
+    
+    # create a panel in which to store a table of all the school districts
+    # I've sampled & which counties they are in!
+    
+    tabPanel("Samples",
+             titlePanel("List of Sample Districts and their Counties"),
+             dataTableOutput('table')),
     
     # Create a new panel the user can access in the navigation bar which will
     # ultimately discuss the models. I am still collecting data and building 
@@ -84,19 +88,17 @@ server <- function(input, output) {
         
         county_wage_map %>%
             mutate(avg_wkly_wage_all = ifelse(state_county %in% 
-                                                  county_samples$county_sample,
+                                                  district_samples$state_county,
                                               avg_wkly_wage_all, NA)) %>%
             ggplot(aes(long, lat, group = group)) +
             geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
             scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage",
-                                 na.value = "white") + 
-            theme(plot.background = element_rect(fill = "#c4c4c4"), 
-                  legend.position = "bottom",
-                  plot.title = element_text(color = "white", face = "bold"),
-                  plot.subtitle = element_text(color = "white", face = "bold"),
-                  plot.caption = element_text(color = "white", face = "bold"),
-                  legend.text = element_text(color = "white", face = "bold"),
-                  legend.title = element_text(color = "white", face = "bold")) +
+                                 na.value = "#e3e3e3") + 
+            theme(legend.position = "bottom",
+                  plot.title = element_text(color = "black", face = "bold"),
+                  plot.caption = element_text(color = "black", face = "bold"),
+                  legend.text = element_text(color = "black", face = "bold"),
+                  legend.title = element_text(color = "black", face = "bold")) +
             labs(title = " Average Weekly Wages for Educators per County", 
                       subtitle = " Limited to Sampled Counties",
                       caption = "Source: Bureau of Labor Statistics ")
@@ -107,20 +109,18 @@ server <- function(input, output) {
         
         county_covid_map %>%
             mutate(cases_per_capita = ifelse(state_county %in% 
-                                                 county_samples$county_sample,
+                                                 district_samples$state_county,
                                              cases_per_capita, NA)) %>%
             ggplot(aes(long, lat, group = group)) + 
             geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
             scale_fill_viridis_c(direction = -1, option = "A", name = 
                                      "Cases per Capita",
-                                 na.value = "white") + 
-            theme(plot.background = element_rect(fill = "#c4c4c4"), 
-                  legend.position = "bottom",
-                  plot.title = element_text(color = "white", face = "bold"),
-                  plot.subtitle = element_text(color = "white", face = "bold"),
-                  plot.caption = element_text(color = "white", face = "bold"),
-                  legend.text = element_text(color = "white", face = "bold"),
-                  legend.title = element_text(color = "white", face = "bold")) +
+                                 na.value = "#e3e3e3") + 
+            theme(legend.position = "bottom",
+                  plot.title = element_text(color = "black", face = "bold"),
+                  plot.caption = element_text(color = "black", face = "bold"),
+                  legend.text = element_text(color = "black", face = "bold"),
+                  legend.title = element_text(color = "black", face = "bold")) +
             labs(title = 
                    " Total COVID-19 Cases per Capita by County, as of 10/16", 
                       subtitle = " Limited to Sampled Counties",
@@ -137,13 +137,12 @@ server <- function(input, output) {
             geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
             scale_fill_viridis_c(direction = -1, option = "D", name = 
                                      "Weekly Wage",
-                                 na.value = "white") + 
-            theme(plot.background = element_rect(fill = "#c4c4c4"), 
-                  legend.position = "bottom",
-                  plot.title = element_text(color = "white", face = "bold"),
-                  plot.caption = element_text(color = "white", face = "bold"),
-                  legend.text = element_text(color = "white", face = "bold"),
-                  legend.title = element_text(color = "white", face = "bold")) + 
+                                 na.value = "#e3e3e3") + 
+            theme(legend.position = "bottom",
+                  plot.title = element_text(color = "black", face = "bold"),
+                  plot.caption = element_text(color = "black", face = "bold"),
+                  legend.text = element_text(color = "black", face = "bold"),
+                  legend.title = element_text(color = "black", face = "bold")) + 
             labs(title = " Average Weekly Wages for Educators per County", 
                       caption = "Source: Bureau of Labor Statistics ")
     })
@@ -156,13 +155,12 @@ server <- function(input, output) {
             geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
             scale_fill_viridis_c(direction = -1, option = "A", name = 
                                      "Cases per Capita",
-                                 na.value = "white") + 
-            theme(plot.background = element_rect(fill = "#c4c4c4"), 
-                  legend.position = "bottom",
-                  plot.title = element_text(color = "white", face = "bold"),
-                  plot.caption = element_text(color = "white", face = "bold"),
-                  legend.text = element_text(color = "white", face = "bold"),
-                  legend.title = element_text(color = "white", face = "bold")) +
+                                 na.value = "#e3e3e3") + 
+            theme(legend.position = "bottom",
+                  plot.title = element_text(color = "black", face = "bold"),
+                  plot.caption = element_text(color = "black", face = "bold"),
+                  legend.text = element_text(color = "black", face = "bold"),
+                  legend.title = element_text(color = "black", face = "bold")) +
             labs(title = 
                    " Total COVID-19 Cases per Capita by County, as of 10/16", 
                       caption = "Source: New York Times ")
@@ -191,7 +189,12 @@ server <- function(input, output) {
     })
     output$map2 <- renderPlot({
         graphs2()
-    })    
+    }) 
+    
+    # render a table in the output for the samples panel!
+    
+    output$table <- renderDataTable(district_samples_table)
+
 }
 
 # Run the application 
