@@ -12,8 +12,6 @@ library(gganimate)
 ```
 # upcoming plans:
 
-## milestone 6: make a table of the sampled school districts/counties and some
-## key info (i.e. population, proportion of county, covid cases, etc.)
 
 * translate county data into school district data (ex. have the percentage of county population each school district takes up) 
 * use https://www.nhgis.org/ to get school district data
@@ -29,8 +27,23 @@ library(gganimate)
 counties are doing
 * if you find a list of school districts, take a random selection of those,
 and then change the map to be a county
-* three stages: intro maps, survey of sampled counties, and anlalysis of teacher
+* three stages: intro maps, survey of sampled counties, and analysis of teacher
 survey
+
+* maybe track data over time? how the plans have changed?
+* track relationship btwn covid cases and school plans
+* create a dataset with whether the school was in person or not for each day
+* get the data for each change (which day it happened)
+
+in google sheets, have date in column A, and each column is a school district,
+and each cell has (1 = in person, 0 = hybrid, -1 = virtual - one unit decrease
+would correspond to one ratchet increase in covid carefulness)
+
+* also, add region code & the county level presidential results:
+https://electionlab.mit.edu/data or get times data for county results
+
+ultimately get long pivoted dataset: with columns date, covid school
+restrictions, county/district (fips code), election results, case count
 
 # Load Data
 
