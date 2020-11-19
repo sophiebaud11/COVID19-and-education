@@ -36,7 +36,7 @@ survey
 * get the data for each change (which day it happened)
 
 in google sheets, have date in column A, and each column is a school district,
-and each cell has (1 = in person, 0 = hybrid, -1 = virtual - one unit decrease
+and each cell has (1 = virtual, 0 = hybrid, -1 = in person - one unit increase
 would correspond to one ratchet increase in covid carefulness)
 
 * also, add region code & the county level presidential results:
