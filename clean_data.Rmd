@@ -9,6 +9,13 @@ library(tidyverse)
 library(totalcensus)
 library(maps)
 library(gganimate)
+library(lubridate)
+library(rstanarm)
+library(tidymodels)
+library(gtsummary)
+library(broom.mixed)
+library(gt)
+library(rsample)
 ```
 # upcoming plans:
 
@@ -48,6 +55,29 @@ restrictions, county/district (fips code), election results, case count
 # Load Data
 
 ```{r}
+
+# school covid restriction data from randomly selected districts
+
+covid_restrictions <- read.csv("raw_data/covid_restrictions.csv") %>%
+  filter(covid.restriction == -1 | covid.restriction == 0 | 
+           covid.restriction == 1) %>%
+  mutate(date = mdy(date))
+
+samples <- read.csv("raw_data/sample_districts_edited.csv")
+
+sample_counties_covid_nyt <- read.csv("raw_data/us-counties.csv") %>%
+  filter(fips %in% samples$fips_code) %>%
+  mutate(date = as_date(date)) %>%
+  filter(date > ymd(20200731))
+  
+final_sample_data <- merge(covid_restrictions, sample_counties_covid_nyt, 
+                               by = c("date", "county")) %>%
+  select(-c(fips_code, state.y, )) %>%
+  rename(state = "state.x",
+         fips_code = "fips") %>%
+  merge(., county_pop_with_fips, by = "fips_code") %>%
+  mutate(cases_per_capita = cases / POPESTIMATE2019,
+         covid.restriction = as.numeric(covid.restriction))
 
 # school district data source Steven Manson, Jonathan Schroeder, David Van Riper, Tracy Kugler, and Steven Ruggles. IPUMS National Historical Geographic Information System: Version 15.0 [dataset]. Minneapolis, MN: IPUMS. 2020. http://doi.org/10.18128/D050.V15.0 / IPUMS NHGIS, University of Minnesota, www.nhgis.org (2014-2018)
 
@@ -145,6 +175,49 @@ county_pop <- read.csv("raw_data/census_county_population.csv")
 wages_q1_2020 <- read.csv("raw_data/6111.csv") 
 ```
 
+# Model
+
+```{r}
+fit1 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
+                   presidential.results + deaths - 1,
+                 data = final_sample_data,
+                 refresh = 0)
+print(fit1, digits = 5)
+
+
+sample_split <- initial_split(final_sample_data, prob = 0.80)
+sample_train <- training(sample_split)
+sample_test <- testing(sample_split)
+# create recipe
+sample_recipe <- recipe(formula = covid.restriction ~ cases_per_capita + 
+                   presidential.results + deaths,
+       data = final_sample_data) %>%
+  step_dummy(all_nominal()) 
+# create model
+lm_model <- linear_reg() %>%
+  set_engine("lm")
+# create workflow + add recipe to it
+lm_wflow <-
+  workflow() %>%
+  add_model(lm_model) %>%
+  add_recipe(sample_recipe)
+
+lm_fit <- fit(lm_wflow, sample_train)
+
+sample_res <- predict(lm_fit, new_data= sample_test)
+
+prediction_results <- bind_cols(sample_test, sample_res) %>%
+  mutate(error = (covid.restriction - .pred)^2) %>%
+  summarise(error = sqrt(mean(error, na.rm = TRUE)))
+
+tbl_regression(fit1, intercept = TRUE) %>% 
+  as_gt() %>%
+  tab_header(title = "Regression of Congressional Ideology",
+             subtitle = "The Effect of Party on DW-NOMINATE Percentile") %>% 
+  tab_source_note(md("Source: https://voteview.com/data"))
+
+```
+
 
 # Clean Data
 
@@ -180,6 +253,14 @@ county_pop_edited <- county_pop %>%
                              tolower(trimws(gsub("County", "", CTYNAME))), 
          tolower(trimws(gsub("Parish", "", CTYNAME)))))%>%
   mutate(state_county = tolower(paste(state, subregion, sep = "")))
+
+county_fips <- fips_codes %>%
+  mutate(state_county = tolower(paste(state.name, county, sep = "")))
+
+county_pop_with_fips <- merge(county_fips, county_pop_edited, by = "state_county") %>%
+  select(fips_code, POPESTIMATE2019, state_county)
+
+
 
 # clean & wrangle covid case count per county data the same way I wrangled
 # the state data!
