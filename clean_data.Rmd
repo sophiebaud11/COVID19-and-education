@@ -16,6 +16,9 @@ library(gtsummary)
 library(broom.mixed)
 library(gt)
 library(rsample)
+# Load the package
+library(nnet)
+
 ```
 # upcoming plans:
 
@@ -79,6 +82,12 @@ final_sample_data <- merge(covid_restrictions, sample_counties_covid_nyt,
   mutate(cases_per_capita = cases / POPESTIMATE2019,
          covid.restriction = as.numeric(covid.restriction))
 
+final_sample_data_binomial <- final_sample_data %>%
+  mutate(covid.restriction = ifelse(covid.restriction == -1, 
+                                    0, covid.restriction))
+
+    
+saveRDS(final_sample_data, file = "final_sample_data.RDS")
 # school district data source Steven Manson, Jonathan Schroeder, David Van Riper, Tracy Kugler, and Steven Ruggles. IPUMS National Historical Geographic Information System: Version 15.0 [dataset]. Minneapolis, MN: IPUMS. 2020. http://doi.org/10.18128/D050.V15.0 / IPUMS NHGIS, University of Minnesota, www.nhgis.org (2014-2018)
 
 district_uni  <- read.csv("raw_data/districts_uni.csv") %>%
@@ -178,16 +187,48 @@ wages_q1_2020 <- read.csv("raw_data/6111.csv")
 # Model
 
 ```{r}
+
 fit1 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
-                   presidential.results + deaths - 1,
-                 data = final_sample_data,
+                   presidential.results - 1,
+                 data = final_sample_data_binomial,
+                 family = binomial(),
                  refresh = 0)
 print(fit1, digits = 5)
 
+tbl_regression(fit1, intercept = TRUE) %>% 
+  as_gt() %>%
+  tab_header(title = "Regression of Public School COVID Restrictions",
+             subtitle = "The Effect of County Cases per Capita and Presidential Results on Restrictions") %>% 
+  tab_source_note(md("Source: NY Times, local school websites."))
 
-sample_split <- initial_split(final_sample_data, prob = 0.80)
+
+mean(final_sample_data_binomial$cases_per_capita)
+
+new <- tibble(presidential.results = c("Trump", "Biden"),
+              cases_per_capita = c(0.0211374, 0.0211374))
+
+# create posterior distributions for both north & not-north rows, based on the
+# model we created above. then turn the output of posterior_predict into
+# an entirely numeric tibble.
+
+post_pred <- posterior_predict(fit1,
+                               newdata = new) %>%
+  as_tibble() %>%
+  mutate_all(as.numeric)
+
+
+```
+
+
+
+```{r}
+
+
+sample_split <- initial_split(final_sample_data_binomial, prob = 0.80)
 sample_train <- training(sample_split)
 sample_test <- testing(sample_split)
+
+
 # create recipe
 sample_recipe <- recipe(formula = covid.restriction ~ cases_per_capita + 
                    presidential.results + deaths,
@@ -210,11 +251,7 @@ prediction_results <- bind_cols(sample_test, sample_res) %>%
   mutate(error = (covid.restriction - .pred)^2) %>%
   summarise(error = sqrt(mean(error, na.rm = TRUE)))
 
-tbl_regression(fit1, intercept = TRUE) %>% 
-  as_gt() %>%
-  tab_header(title = "Regression of Congressional Ideology",
-             subtitle = "The Effect of Party on DW-NOMINATE Percentile") %>% 
-  tab_source_note(md("Source: https://voteview.com/data"))
+
 
 ```
 
