@@ -10,6 +10,24 @@
 library(shiny)
 library(tidyverse)
 library(maps)
+library(rstanarm)
+library(gt)
+library(gtsummary)
+
+# create stan_glm model & gt_table to display it
+final_sample_data_binomial <- readRDS("binomial_data.RDS")
+
+fit2 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
+                     presidential.results - 1,
+                 data = final_sample_data_binomial,
+                 refresh = 0)
+
+regtbl <- tbl_regression(fit2, intercept = FALSE) %>% 
+    as_gt() %>%
+    tab_header(title = "Regression of Public School COVID Restrictions",
+               subtitle = " per Capita and Presidential Results on Restrictions") %>% 
+    tab_source_note(md("Source: NY Times, local school websites."))
+
 
 
 # load data cleaned in clean_data.Rmd
@@ -53,9 +71,9 @@ ui <- navbarPage(
     # ultimately discuss the models. I am still collecting data and building 
     # models, so I did not yet feel comfortable filling out this page!
     
-    tabPanel("Discussion",
-             titlePanel("Discussion Title"),
-             p("TBD")),
+    tabPanel("Model",
+             titlePanel("Model"),
+             gt_output("regTable")),
     
     # Create another panel for the "About" page. Here, I list introductory 
     # information about my project & myself.
@@ -194,6 +212,11 @@ server <- function(input, output) {
     # render a table in the output for the samples panel!
     
     output$table <- renderDataTable(district_samples_table)
+    output$regTable <- render_gt(
+        expr = regtbl,
+        height = px(600),
+        width = px(600)
+    )
 
 }
 
