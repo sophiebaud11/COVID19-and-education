@@ -188,6 +188,10 @@ wages_q1_2020 <- read.csv("raw_data/6111.csv")
 
 ```{r}
 
+
+# measure rate of change of covid cases by day/week/two weeks as a predictor 
+set.seed(9)
+
 fit1 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
                    presidential.results - 1,
                  data = final_sample_data_binomial,
@@ -195,14 +199,24 @@ fit1 <- stan_glm(formula = covid.restriction ~ cases_per_capita +
                  refresh = 0)
 print(fit1, digits = 5)
 
-tbl_regression(fit1, intercept = TRUE) %>% 
+fit2 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
+                   presidential.results - 1,
+                 data = final_sample_data_binomial,
+                 refresh = 0)
+print(fit2, digits = 5)
+
+tbl_regression(fit1, intercept = FALSE) %>% 
   as_gt() %>%
   tab_header(title = "Regression of Public School COVID Restrictions",
-             subtitle = "The Effect of County Cases per Capita and Presidential Results on Restrictions") %>% 
+             subtitle = " per Capita and Presidential Results on Restrictions") %>% 
   tab_source_note(md("Source: NY Times, local school websites."))
 
+tbl_regression(fit2, intercept = FALSE) %>% 
+  as_gt() %>%
+  tab_header(title = "Regression of Public School COVID Restrictions",
+             subtitle = " per Capita and Presidential Results on Restrictions") %>% 
+  tab_source_note(md("Source: NY Times, local school websites."))
 
-mean(final_sample_data_binomial$cases_per_capita)
 
 new <- tibble(presidential.results = c("Trump", "Biden"),
               cases_per_capita = c(0.0211374, 0.0211374))
@@ -251,7 +265,7 @@ prediction_results <- bind_cols(sample_test, sample_res) %>%
   mutate(error = (covid.restriction - .pred)^2) %>%
   summarise(error = sqrt(mean(error, na.rm = TRUE)))
 
-
+saveRDS(final_sample_data_binomial, "binomial_data.RDS")
 
 ```
 
