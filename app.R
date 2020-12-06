@@ -17,6 +17,8 @@ library(gtsummary)
 # create stan_glm model & gt_table to display it
 final_sample_data_binomial <- readRDS("binomial_data.RDS")
 
+set.seed(9)
+
 fit2 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
                      presidential.results - 1,
                  data = final_sample_data_binomial,

@@ -186,10 +186,18 @@ wages_q1_2020 <- read.csv("raw_data/6111.csv")
 
 # Model
 
+exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita number))/(1+exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita number)) this calculates P(Y = 1) (aka fully remote)
+
+ADD DATA FROM FINAL_SAMPLE_BINOMIAL TO SAMPLES TAB OF SHINY APP
+
 ```{r}
-
-
+# probability calculation
+#
 # measure rate of change of covid cases by day/week/two weeks as a predictor 
+
+final_sample_data_binomial %>%
+  mutate(daily_change = )
+
 set.seed(9)
 
 fit1 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
@@ -208,13 +216,15 @@ print(fit2, digits = 5)
 tbl_regression(fit1, intercept = FALSE) %>% 
   as_gt() %>%
   tab_header(title = "Regression of Public School COVID Restrictions",
-             subtitle = " per Capita and Presidential Results on Restrictions") %>% 
+             subtitle = 
+               " per Capita and Presidential Results on Restrictions") %>% 
   tab_source_note(md("Source: NY Times, local school websites."))
 
 tbl_regression(fit2, intercept = FALSE) %>% 
   as_gt() %>%
   tab_header(title = "Regression of Public School COVID Restrictions",
-             subtitle = " per Capita and Presidential Results on Restrictions") %>% 
+             subtitle = 
+               " per Capita and Presidential Results on Restrictions") %>% 
   tab_source_note(md("Source: NY Times, local school websites."))
 
 
