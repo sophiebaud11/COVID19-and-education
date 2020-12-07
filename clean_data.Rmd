@@ -20,40 +20,10 @@ library(rsample)
 library(nnet)
 
 ```
-# upcoming plans:
-
-
-* translate county data into school district data (ex. have the percentage of county population each school district takes up) 
-* use https://www.nhgis.org/ to get school district data
-* variables for the dataset:
-  * county covid cases (pay attention to time & edit based on proportion of 
-  district to county)
-  * in person/hybrid/virtual (code)
-  * teacher wages
-  * political leaning of the area
-  * population of students
-* look at relationships with this variable
-* this is less of a predictive thing and more of a survey of some of what other
-counties are doing
-* if you find a list of school districts, take a random selection of those,
-and then change the map to be a county
-* three stages: intro maps, survey of sampled counties, and analysis of teacher
-survey
-
-* maybe track data over time? how the plans have changed?
-* track relationship btwn covid cases and school plans
-* create a dataset with whether the school was in person or not for each day
-* get the data for each change (which day it happened)
-
-in google sheets, have date in column A, and each column is a school district,
-and each cell has (1 = virtual, 0 = hybrid, -1 = in person - one unit increase
-would correspond to one ratchet increase in covid carefulness)
-
-* also, add region code & the county level presidential results:
-https://electionlab.mit.edu/data or get times data for county results
-
-ultimately get long pivoted dataset: with columns date, covid school
-restrictions, county/district (fips code), election results, case count
+TO DO BEFORE HANDING IN:
+* upload all data to github
+* keep finessing the model
+* add github link to about page
 
 # Load Data
 
@@ -156,9 +126,7 @@ covid_nytimes <- read.csv("raw_data/covid_nytimes.csv")
 # https://github.com/nytimes/covid-19-data. separate csv file into multiple
 # columns.
 
-county_covid_nyt <- read.csv("raw_data/county_covid.csv") %>%
-  separate(col = "date.county.state.fips.cases.deaths", sep = ",", 
-           into = c("date", "county", "state", "fips", "cases", "deaths"))
+county_covid_nyt <- read.csv("raw_data/us-counties.csv")
 
 # state population as of July 2019 data source:
 # https://www.census.gov/data/datasets/time-series/demo/popest/2010s-state-total
@@ -186,18 +154,40 @@ wages_q1_2020 <- read.csv("raw_data/6111.csv")
 
 # Model
 
-exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita number))/(1+exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita number)) this calculates P(Y = 1) (aka fully remote)
-
-ADD DATA FROM FINAL_SAMPLE_BINOMIAL TO SAMPLES TAB OF SHINY APP
 
 ```{r}
-# probability calculation
-#
-# measure rate of change of covid cases by day/week/two weeks as a predictor 
-
+data(state)
 final_sample_data_binomial %>%
-  mutate(daily_change = )
+  mutate(region = which(state.name == state.region))
+regions <- tibble(state.name, state.region) %>%
+  rename(state = "state.name") %>%
+  mutate(state.region = ifelse(state.region == "North Central", "Midwest", as.character(state.region)))
 
+final_fit_data <- left_join(final_sample_data_binomial, regions, 
+                            by = "state") %>%
+  rename(`COVID Rate` = "rate",
+         Region = "state.region")
+
+set.seed(9)
+
+fit2 <- stan_glm(formula = covid.restriction ~ `COVID Rate` + Region - 1,
+                 data = final_fit_data,
+                 family = binomial(),
+                 refresh = 0)
+
+saveRDS(fit2, "fit.RDS")
+
+saveRDS(final_sample_data_binomial, "final_sample_data.RDS")
+
+final_sample_data_binomial <- final_sample_data_binomial %>%
+  group_by(county) %>% 
+  arrange(county, date) %>% 
+  mutate(rate = 100 * 
+           (cases_per_capita - lag(cases_per_capita))/lag(cases_per_capita)) %>%
+  ungroup()
+
+# measure rate of change of covid cases by day/week/two weeks as a predictor 
+state.region
 set.seed(9)
 
 fit1 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
@@ -207,12 +197,23 @@ fit1 <- stan_glm(formula = covid.restriction ~ cases_per_capita +
                  refresh = 0)
 print(fit1, digits = 5)
 
-fit2 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
-                   presidential.results - 1,
+fit2 <- stan_glm(formula = covid.restriction ~ rate + 1,
                  data = final_sample_data_binomial,
+                 family = binomial(),
                  refresh = 0)
 print(fit2, digits = 5)
 
+mean(final_sample_data_binomial$rate, na.rm = TRUE)
+
+#exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita #number))/(1+exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita 
+# number)) this calculates P(Y = 1) (aka fully remote)
+                                                                                      
+exp(-2.40324 + (-0.34339 * (0.01))) / (1 + exp(-2.40324 + (-0.34339 * (0.01))))
+                                                                                      
+# P(Y = 1) (fully remote chance) if rate of covid change is the mean: 0.05464674
+```
+
+```{r}
 tbl_regression(fit1, intercept = FALSE) %>% 
   as_gt() %>%
   tab_header(title = "Regression of Public School COVID Restrictions",
@@ -239,7 +240,6 @@ post_pred <- posterior_predict(fit1,
                                newdata = new) %>%
   as_tibble() %>%
   mutate_all(as.numeric)
-
 
 ```
 
@@ -331,17 +331,20 @@ county_covid_edited <- county_covid_nyt %>%
          cases = as.numeric(cases),
          deaths = as.numeric(deaths),
          state = tolower(state)) %>%
-  select(-c(county)) %>%
   mutate(state_county = tolower(paste(state, subregion, sep = ""))) %>%
   group_by(state_county) %>%
-  summarize(total_cases = sum(cases), total_deaths = sum(deaths), 
-            .groups = "drop") %>%
+  filter(date == "2020-11-29") %>%
+  select(-c(county, state)) %>%
   full_join(., county_pop_edited, by = "state_county") %>%
   drop_na() %>%
   rename(pop = "POPESTIMATE2019",
          region = "state") %>%
-  mutate(cases_per_capita = total_cases/pop) %>%
+  mutate(cases_per_capita = cases/pop) %>%
   select(-c(CTYNAME))
+
+  
+  summarize(total_cases = sum(cases), total_deaths = sum(deaths), 
+            .groups = "drop") %>%
   
 # sample 50 random counties and get the school districts for those counties
 # rep = 2 to account for cases in which the school district doesn't have info
@@ -485,7 +488,7 @@ wages_map <- left_join(states_map, wages_q1_2020_edited, by = "region")
 # in Shiny.
 
 write_csv(county_wage_map, "raw_data/county_wage_map.csv")
-write_csv(county_covid_map, "raw_data/county_covid_map.csv")
+write_csv(county_covid_map, "county_covid_map.csv")
 write_csv(sample_districts_edited, "raw_data/sample_districts_edited.csv")
 write_csv(tibble(Districts = sample_districts_edited$SDUNI,
                  County = str_to_title(sample_districts_edited$subregion)), 

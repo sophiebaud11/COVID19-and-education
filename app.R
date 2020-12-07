@@ -10,56 +10,55 @@
 library(shiny)
 library(tidyverse)
 library(maps)
+library(broom.mixed)
 library(rstanarm)
 library(gt)
 library(gtsummary)
-
-# create stan_glm model & gt_table to display it
-final_sample_data_binomial <- readRDS("binomial_data.RDS")
-
-set.seed(9)
-
-fit2 <- stan_glm(formula = covid.restriction ~ cases_per_capita + 
-                     presidential.results - 1,
-                 data = final_sample_data_binomial,
-                 refresh = 0)
-
-regtbl <- tbl_regression(fit2, intercept = FALSE) %>% 
-    as_gt() %>%
-    tab_header(title = "Regression of Public School COVID Restrictions",
-               subtitle = " per Capita and Presidential Results on Restrictions") %>% 
-    tab_source_note(md("Source: NY Times, local school websites."))
-
+library(rsample)
+library(shinythemes)
+library(shinyWidgets)
 
 
 # load data cleaned in clean_data.Rmd
 
-county_wage_map <- read_csv("raw_data/county_wage_map.csv")
-county_covid_map <- read_csv("raw_data/county_covid_map.csv")
-county_samples <- read_csv("raw_data/county_samples.csv")
-district_samples <- read_csv("raw_data/sample_districts_edited.csv")
-district_samples_table <- read_csv("raw_data/sample_districts_table.csv")
-ui <- navbarPage(
-    "COVID-19 Impact on Teachers",
+county_wage_map <- readRDS("county_wage_map.RDS")
+county_covid_map <- readRDS("county_covid_map.RDS")
+district_samples <- readRDS("district_samples.RDS")
+district_samples_table <- readRDS("district_samples_table.RDS")
+
+fit2 <- readRDS("fit.RDS")
+
+regtbl <- 
+
+
+
+
+ui <- navbarPage("The Impact of COVID-19 on Education",
     tabPanel("Introduction",
              fluidPage(
                  titlePanel("Contextual Maps"),
                  
-                 radioButtons("sampled", "Sampled?",
-                              c("Yes" = "sample",
-                                "No" = "nosample")),
+                 fluidRow(
+                     column(3, 
+                            selectInput("sampled", "Sampled?",
+                              c("Yes", "No"))),
+                     column(3, style="margin-top:10px",
+                            submitButton(" Generate Maps", 
+                                         icon("globe-americas", 
+                                              lib = "font-awesome")))
+                 
+                 ),
                  
                  fluidRow(
                      
                      column(6,
-                            plotOutput("map1")      
+                            plotOutput("map1")
                      ),
                      
                      column(6,
                             plotOutput("map2")
                      )
-                 ),
-                     # show plots in a tabset panel to improve UI!
+                 )
                 )),
     
     # create a panel in which to store a table of all the school districts
@@ -74,9 +73,38 @@ ui <- navbarPage(
     # models, so I did not yet feel comfortable filling out this page!
     
     tabPanel("Model",
-             titlePanel("Model"),
-             gt_output("regTable")),
-    
+             titlePanel("Model Output, Interpretation, and Application"),
+             h5("Explore the output and interpretations of this model in the 
+             tabs below. Then, use it to predict whether a school district 
+             will operate entirely virtually based on daily COVID-19 case per 
+             capita rate of change."),
+             mainPanel(
+                 tabsetPanel(
+                     tabPanel("Output", 
+                              fluidRow(
+                                  column(5, style = "margin:15px",
+                                         gt_output("regTable")
+                                  ))
+                              ),
+                     tabPanel("Interpretation", 
+                              fluidRow(
+                                  column(5, style = "margin:15px",
+                                         textOutput("interp")
+                                  ))
+                              )
+                 )
+             ),
+             sidebarPanel(
+                 h3("Application"),
+                 h5("Try entering the mean rate of change: 1.28. Then,
+                    generate the probability the district will require all
+                    classes will be taught virtually."),
+                 numericInput("rateInput", "Enter a Daily Rate of Change:", 0),
+                 submitButton("Generate Probability", icon("refresh")),
+                 h4("Probability the district will be virtual:"),
+                 textOutput("value")
+             )),
+
     # Create another panel for the "About" page. Here, I list introductory 
     # information about my project & myself.
     
@@ -93,134 +121,146 @@ ui <- navbarPage(
              h3("About Me"),
              p("My name is Sophie Bauder and I study History & Literature,
              Government, and Mandarin Chinese. 
-             You can reach me at sophiebauder@college.harvard.edu.")))
+             You can reach me at sophiebauder@college.harvard.edu.")),
+    theme = shinytheme("flatly"))
 
 # Define server logic required to display selected maps.
 
 server <- function(input, output) {
     
-    # create 2 reactive objects containing the map data for each plot. 
-    # (map code is commented on in the clean_data.Rmd file!)
     
-    sample1 <- reactive({
+    # run function to calculate probability based on model output & user input
+    
+    probability <- reactive({
+        
+        x <- 100 * (exp(-2.06958 + (-0.34227 * (input$rateInput))) / 
+                        (1 + exp(-2.06958 + (-0.34227 * (input$rateInput)))))
+        x_short <- signif(x, digits = 3)
+        paste(x_short, "%", sep = "")
+    })
+    
+    graph1 <- reactive({
+        if (input$sampled == "Yes") {
+            plot1 <- county_wage_map %>%
+                mutate(avg_wkly_wage_all = ifelse(state_county %in% 
+                                                      district_samples$state_county,
+                                                  avg_wkly_wage_all, NA)) %>%
+                ggplot(aes(long, lat, group = group)) +
+                geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+                scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage",
+                                     na.value = "#e3e3e3") + 
+                theme(legend.position = "bottom",
+                      plot.title = element_text(color = "black", face = "bold"),
+                      plot.caption = element_text(color = "black", face = "bold"),
+                      legend.text = element_text(color = "black", face = "bold"),
+                      legend.title = element_text(color = "black", face = "bold")) +
+                labs(title = " Average Weekly Wages for Educators per County", 
+                     subtitle = " Limited to Sampled Counties",
+                     caption = "Source: Bureau of Labor Statistics ")
+        }
+        else {
+            plot1 <- county_wage_map %>%
+                ggplot(aes(long, lat, group = group)) +
+                geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+                scale_fill_viridis_c(direction = -1, option = "D", name = 
+                                         "Weekly Wage",
+                                     na.value = "#e3e3e3") + 
+                theme(legend.position = "bottom",
+                      plot.title = element_text(color = "black", face = "bold"),
+                      plot.caption = element_text(color = "black", face = "bold"),
+                      legend.text = element_text(color = "black", face = "bold"),
+                      legend.title = element_text(color = "black", face = "bold")) + 
+                labs(title = " Average Weekly Wages for Educators per County", 
+                     caption = "Source: Bureau of Labor Statistics ")
+        }
+        return(plot1)
+    })
+    graph2 <- reactive({
+        if (input$sampled == "Yes") {
+            plot2 <- county_covid_map %>%
+                mutate(cases_per_capita = ifelse(state_county %in% 
+                                                     district_samples$state_county,
+                                                 cases_per_capita, NA)) %>%
+                ggplot(aes(long, lat, group = group)) + 
+                geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
+                scale_fill_viridis_c(direction = -1, option = "A", name = 
+                                         "Cases per Capita",
+                                     na.value = "#e3e3e3") + 
+                theme(legend.position = "bottom",
+                      plot.title = element_text(color = "black", face = "bold"),
+                      plot.caption = element_text(color = "black", face = "bold"),
+                      legend.text = element_text(color = "black", face = "bold"),
+                      legend.title = element_text(color = "black", face = "bold")) +
+                labs(title = 
+                         "COVID-19 Cases per Capita by County, as of 11/29/20", 
+                     subtitle = " Limited to Sampled Counties",
+                     caption = "Source: New York Times ")
             
-        # wage plot 
-        
-        county_wage_map %>%
-            mutate(avg_wkly_wage_all = ifelse(state_county %in% 
-                                                  district_samples$state_county,
-                                              avg_wkly_wage_all, NA)) %>%
-            ggplot(aes(long, lat, group = group)) +
-            geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
-            scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage",
-                                 na.value = "#e3e3e3") + 
-            theme(legend.position = "bottom",
-                  plot.title = element_text(color = "black", face = "bold"),
-                  plot.caption = element_text(color = "black", face = "bold"),
-                  legend.text = element_text(color = "black", face = "bold"),
-                  legend.title = element_text(color = "black", face = "bold")) +
-            labs(title = " Average Weekly Wages for Educators per County", 
-                      subtitle = " Limited to Sampled Counties",
-                      caption = "Source: Bureau of Labor Statistics ")
-    })
-    sample2 <- reactive ({
-        
-        # covid plot 
-        
-        county_covid_map %>%
-            mutate(cases_per_capita = ifelse(state_county %in% 
-                                                 district_samples$state_county,
-                                             cases_per_capita, NA)) %>%
-            ggplot(aes(long, lat, group = group)) + 
-            geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
-            scale_fill_viridis_c(direction = -1, option = "A", name = 
-                                     "Cases per Capita",
-                                 na.value = "#e3e3e3") + 
-            theme(legend.position = "bottom",
-                  plot.title = element_text(color = "black", face = "bold"),
-                  plot.caption = element_text(color = "black", face = "bold"),
-                  legend.text = element_text(color = "black", face = "bold"),
-                  legend.title = element_text(color = "black", face = "bold")) +
-            labs(title = 
-                   " Total COVID-19 Cases per Capita by County, as of 10/16", 
-                      subtitle = " Limited to Sampled Counties",
-                      caption = "Source: New York Times ")
-        
-    })
-    
-    nosample1 <- reactive({
-               
-        # wage plot
-        
-        county_wage_map %>%
-            ggplot(aes(long, lat, group = group)) +
-            geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
-            scale_fill_viridis_c(direction = -1, option = "D", name = 
-                                     "Weekly Wage",
-                                 na.value = "#e3e3e3") + 
-            theme(legend.position = "bottom",
-                  plot.title = element_text(color = "black", face = "bold"),
-                  plot.caption = element_text(color = "black", face = "bold"),
-                  legend.text = element_text(color = "black", face = "bold"),
-                  legend.title = element_text(color = "black", face = "bold")) + 
-            labs(title = " Average Weekly Wages for Educators per County", 
-                      caption = "Source: Bureau of Labor Statistics ")
-    })
-    
-    nosample2 <- reactive ({
-        # covid plot 
-        
-        county_covid_map %>%
-            ggplot(aes(long, lat, group = group)) + 
-            geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
-            scale_fill_viridis_c(direction = -1, option = "A", name = 
-                                     "Cases per Capita",
-                                 na.value = "#e3e3e3") + 
-            theme(legend.position = "bottom",
-                  plot.title = element_text(color = "black", face = "bold"),
-                  plot.caption = element_text(color = "black", face = "bold"),
-                  legend.text = element_text(color = "black", face = "bold"),
-                  legend.title = element_text(color = "black", face = "bold")) +
-            labs(title = 
-                   " Total COVID-19 Cases per Capita by County, as of 10/16", 
-                      caption = "Source: New York Times ")
-        
-    })
-    
-    # create 2 reactive objects which responds to the user's selection in the 
-    # input "view", and calls the relevant reactive object as a result.
-    
-    graphs1 <- reactive({
-        switch(input$sampled,
-               "sample" = sample1(),
-               "nosample" = nosample1()
-        )
-    })
-    graphs2 <- reactive({
-        switch(input$sampled,
-               "sample" = sample2(),
-               "nosample" = nosample2()
-        )
+        }
+        else {
+            plot2 <- county_covid_map %>%
+                ggplot(aes(long, lat, group = group)) + 
+                geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
+                scale_fill_viridis_c(direction = -1, option = "A", name = 
+                                         "Cases per Capita",
+                                     na.value = "#e3e3e3") + 
+                theme(legend.position = "bottom",
+                      plot.title = element_text(color = "black", face = "bold"),
+                      plot.caption = element_text(color = "black", face = "bold"),
+                      legend.text = element_text(color = "black", face = "bold"),
+                      legend.title = element_text(color = "black", face = "bold")) +
+                labs(title = 
+                         "COVID-19 Cases per Capita by County, as of 11/29/20", 
+                     caption = "Source: New York Times ")
+        }
+        return(plot2)
     })
     # for the outputted plot, call the "graph" reactive objects!
     
     output$map1 <- renderPlot({
-       graphs1()
+        graph1()
     })
     output$map2 <- renderPlot({
-        graphs2()
-    }) 
+        graph2()
+    })
     
+  
     # render a table in the output for the samples panel!
     
     output$table <- renderDataTable(district_samples_table)
+    
     output$regTable <- render_gt(
-        expr = regtbl,
+        expr = tbl_regression(fit2, intercept = TRUE) %>% 
+            as_gt() %>%
+            tab_header(title = "Regression of Public School COVID Restrictions",
+                       subtitle = "Impact of Rate of Change for County COVID-19 per 
+               Capita on Restrictions") %>% 
+            tab_source_note(md("Source: NY Times, local school websites.")),
         height = px(600),
         width = px(600)
     )
-
-}
+    output$sampled1 <- renderText({ input$sampled })
+    output$value <- renderText({probability()})
+    output$interp <- renderText("This model output is surprising—it implies 
+                              that as COVID-19 cases increase locally, schools
+                              will be less likely to go fully virtual. I
+                              interpret that result to indicate that areas
+                              which are succeeding in curtailing COVID-19 (ex. 
+                              those with decreasing daily case counts) may be 
+                              more likely to see schools operate virtually as 
+                              an extension of cautious methods which brought
+                              their local case count down. However, my model is
+                                 very limited in sample size and may very well
+                                 be skewed by that limitation, so this model
+                                 should be taken more as an impetus to examine
+                                 the conditions under which schools are likely
+                                 to reopen in-person learning. As indicated in
+                                 the Teachers tab, this decision has enormous
+                                 impacts on educators and students alike.")
+    
+    
+    
+    }
 
 # Run the application 
 
