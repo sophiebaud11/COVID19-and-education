@@ -157,8 +157,6 @@ wages_q1_2020 <- read.csv("raw_data/6111.csv")
 
 ```{r}
 data(state)
-final_sample_data_binomial %>%
-  mutate(region = which(state.name == state.region))
 regions <- tibble(state.name, state.region) %>%
   rename(state = "state.name") %>%
   mutate(state.region = ifelse(state.region == "North Central", "Midwest", as.character(state.region)))
@@ -177,7 +175,11 @@ fit2 <- stan_glm(formula = covid.restriction ~ `COVID Rate` + Region - 1,
 
 saveRDS(fit2, "fit.RDS")
 
-saveRDS(final_sample_data_binomial, "final_sample_data.RDS")
+print(fit2, digits = 5)
+
+exp(-2.40324 + (-0.34339 * (0.01))) / (1 + exp(-2.40324 + (-0.34339 * (0.01))))
+
+final_sample_data_binomial <-readRDS("final_sample_data.RDS")
 
 final_sample_data_binomial <- final_sample_data_binomial %>%
   group_by(county) %>% 
@@ -208,8 +210,10 @@ mean(final_sample_data_binomial$rate, na.rm = TRUE)
 #exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita #number))/(1+exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita 
 # number)) this calculates P(Y = 1) (aka fully remote)
                                                                                       
-exp(-2.40324 + (-0.34339 * (0.01))) / (1 + exp(-2.40324 + (-0.34339 * (0.01))))
-                                                                                      
+exp(-3.81122 + (-0.22950 * (0.01))) / (1 + exp(-3.81122 + (-0.22950 * (0.01))))
+ 
+exp(-2.86936 + (-0.22950 * (0.01))) / (1 + exp(-2.86936 + (-0.22950 * (0.01))))
+                                                                                     
 # P(Y = 1) (fully remote chance) if rate of covid change is the mean: 0.05464674
 ```
 

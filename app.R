@@ -28,8 +28,6 @@ district_samples_table <- readRDS("district_samples_table.RDS")
 
 fit2 <- readRDS("fit.RDS")
 
-regtbl <- 
-
 
 
 
@@ -100,6 +98,10 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
                     generate the probability the district will require all
                     classes will be taught virtually."),
                  numericInput("rateInput", "Enter a Daily Rate of Change:", 0),
+                 selectInput("region", "Enter a Region:", c("Northeast",
+                                                            "Midwest",
+                                                            "West",
+                                                            "South")),
                  submitButton("Generate Probability", icon("refresh")),
                  h4("Probability the district will be virtual:"),
                  textOutput("value")
@@ -128,100 +130,140 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
 
 server <- function(input, output) {
     
+  # create 2 reactive objects containing the map data for each plot. 
+  # (map code is commented on in the clean_data.Rmd file!)
+  
+  sample1 <- reactive({
     
+    # wage plot 
+    
+    county_wage_map %>%
+      mutate(avg_wkly_wage_all = ifelse(state_county %in% 
+                                          district_samples$state_county,
+                                        avg_wkly_wage_all, NA)) %>%
+      ggplot(aes(long, lat, group = group)) +
+      geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+      scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage",
+                           na.value = "#e3e3e3") + 
+      theme(legend.position = "bottom",
+            plot.title = element_text(color = "black", face = "bold"),
+            plot.caption = element_text(color = "black", face = "bold"),
+            legend.text = element_text(color = "black", face = "bold"),
+            legend.title = element_text(color = "black", face = "bold")) +
+      labs(title = " Average Weekly Wages for Educators per County", 
+           subtitle = " Limited to Sampled Counties",
+           caption = "Source: Bureau of Labor Statistics ")
+  })
+  sample2 <- reactive ({
+    
+    # covid plot 
+    
+    county_covid_map %>%
+      mutate(cases_per_capita = ifelse(state_county %in% 
+                                         district_samples$state_county,
+                                       cases_per_capita, NA)) %>%
+      ggplot(aes(long, lat, group = group)) + 
+      geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
+      scale_fill_viridis_c(direction = -1, option = "A", name = 
+                             "Cases per Capita",
+                           na.value = "#e3e3e3") + 
+      theme(legend.position = "bottom",
+            plot.title = element_text(color = "black", face = "bold"),
+            plot.caption = element_text(color = "black", face = "bold"),
+            legend.text = element_text(color = "black", face = "bold"),
+            legend.title = element_text(color = "black", face = "bold")) +
+      labs(title = 
+             "COVID-19 Cases per Capita by County, as of 11/29/20", 
+           subtitle = " Limited to Sampled Counties",
+           caption = "Source: New York Times ")
+    
+  })
+  
+  nosample1 <- reactive({
+    
+    # wage plot
+    
+    county_wage_map %>%
+      ggplot(aes(long, lat, group = group)) +
+      geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
+      scale_fill_viridis_c(direction = -1, option = "D", name = 
+                             "Weekly Wage",
+                           na.value = "#e3e3e3") + 
+      theme(legend.position = "bottom",
+            plot.title = element_text(color = "black", face = "bold"),
+            plot.caption = element_text(color = "black", face = "bold"),
+            legend.text = element_text(color = "black", face = "bold"),
+            legend.title = element_text(color = "black", face = "bold")) + 
+      labs(title = " Average Weekly Wages for Educators per County", 
+           caption = "Source: Bureau of Labor Statistics ")
+  })
+  
+  nosample2 <- reactive ({
+    # covid plot 
+    
+    county_covid_map %>%
+      ggplot(aes(long, lat, group = group)) + 
+      geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
+      scale_fill_viridis_c(direction = -1, option = "A", name = 
+                             "Cases per Capita",
+                           na.value = "#e3e3e3") + 
+      theme(legend.position = "bottom",
+            plot.title = element_text(color = "black", face = "bold"),
+            plot.caption = element_text(color = "black", face = "bold"),
+            legend.text = element_text(color = "black", face = "bold"),
+            legend.title = element_text(color = "black", face = "bold")) +
+      labs(title = 
+             "COVID-19 Cases per Capita by County, as of 11/29/20", 
+           caption = "Source: New York Times ")
+    
+  })
+  
+  # create 2 reactive objects which responds to the user's selection in the 
+  # input "view", and calls the relevant reactive object as a result.
+  
+  graphs1 <- reactive({
+    switch(input$sampled,
+           "Yes" = sample1(),
+           "No" = nosample1()
+    )
+  })
+  graphs2 <- reactive({
+    switch(input$sampled,
+           "Yes" = sample2(),
+           "No" = nosample2()
+    )
+  })
+  
     # run function to calculate probability based on model output & user input
     
     probability <- reactive({
+        if (input$region == "Midwest") {
+            beta_zero = -3.81122
+          }
+        else if (input$region == "Northeast") {
+          beta_zero = -1.92707
+        }
+        else if (input$region == "West") {
+          beta_zero = -0.19769
+        }
+        else {
+          beta_zero = -2.86936
+        }
         
-        x <- 100 * (exp(-2.06958 + (-0.34227 * (input$rateInput))) / 
-                        (1 + exp(-2.06958 + (-0.34227 * (input$rateInput)))))
+        x <- 100 * (exp(beta_zero + (-0.22950 * (input$rateInput))) / 
+                        (1 + exp(beta_zero + (-0.22950 * (input$rateInput)))))
         x_short <- signif(x, digits = 3)
         paste(x_short, "%", sep = "")
     })
     
-    graph1 <- reactive({
-        if (input$sampled == "Yes") {
-            plot1 <- county_wage_map %>%
-                mutate(avg_wkly_wage_all = ifelse(state_county %in% 
-                                                      district_samples$state_county,
-                                                  avg_wkly_wage_all, NA)) %>%
-                ggplot(aes(long, lat, group = group)) +
-                geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
-                scale_fill_viridis_c(direction = -1, option = "D", name = "Weekly Wage",
-                                     na.value = "#e3e3e3") + 
-                theme(legend.position = "bottom",
-                      plot.title = element_text(color = "black", face = "bold"),
-                      plot.caption = element_text(color = "black", face = "bold"),
-                      legend.text = element_text(color = "black", face = "bold"),
-                      legend.title = element_text(color = "black", face = "bold")) +
-                labs(title = " Average Weekly Wages for Educators per County", 
-                     subtitle = " Limited to Sampled Counties",
-                     caption = "Source: Bureau of Labor Statistics ")
-        }
-        else {
-            plot1 <- county_wage_map %>%
-                ggplot(aes(long, lat, group = group)) +
-                geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
-                scale_fill_viridis_c(direction = -1, option = "D", name = 
-                                         "Weekly Wage",
-                                     na.value = "#e3e3e3") + 
-                theme(legend.position = "bottom",
-                      plot.title = element_text(color = "black", face = "bold"),
-                      plot.caption = element_text(color = "black", face = "bold"),
-                      legend.text = element_text(color = "black", face = "bold"),
-                      legend.title = element_text(color = "black", face = "bold")) + 
-                labs(title = " Average Weekly Wages for Educators per County", 
-                     caption = "Source: Bureau of Labor Statistics ")
-        }
-        return(plot1)
-    })
-    graph2 <- reactive({
-        if (input$sampled == "Yes") {
-            plot2 <- county_covid_map %>%
-                mutate(cases_per_capita = ifelse(state_county %in% 
-                                                     district_samples$state_county,
-                                                 cases_per_capita, NA)) %>%
-                ggplot(aes(long, lat, group = group)) + 
-                geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
-                scale_fill_viridis_c(direction = -1, option = "A", name = 
-                                         "Cases per Capita",
-                                     na.value = "#e3e3e3") + 
-                theme(legend.position = "bottom",
-                      plot.title = element_text(color = "black", face = "bold"),
-                      plot.caption = element_text(color = "black", face = "bold"),
-                      legend.text = element_text(color = "black", face = "bold"),
-                      legend.title = element_text(color = "black", face = "bold")) +
-                labs(title = 
-                         "COVID-19 Cases per Capita by County, as of 11/29/20", 
-                     subtitle = " Limited to Sampled Counties",
-                     caption = "Source: New York Times ")
-            
-        }
-        else {
-            plot2 <- county_covid_map %>%
-                ggplot(aes(long, lat, group = group)) + 
-                geom_polygon(aes(fill = cases_per_capita)) + theme_void() +
-                scale_fill_viridis_c(direction = -1, option = "A", name = 
-                                         "Cases per Capita",
-                                     na.value = "#e3e3e3") + 
-                theme(legend.position = "bottom",
-                      plot.title = element_text(color = "black", face = "bold"),
-                      plot.caption = element_text(color = "black", face = "bold"),
-                      legend.text = element_text(color = "black", face = "bold"),
-                      legend.title = element_text(color = "black", face = "bold")) +
-                labs(title = 
-                         "COVID-19 Cases per Capita by County, as of 11/29/20", 
-                     caption = "Source: New York Times ")
-        }
-        return(plot2)
-    })
+    
     # for the outputted plot, call the "graph" reactive objects!
     
     output$map1 <- renderPlot({
-        graph1()
+        graphs1()
     })
     output$map2 <- renderPlot({
-        graph2()
+        graphs2()
     })
     
   
