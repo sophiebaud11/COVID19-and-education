@@ -152,6 +152,82 @@ county_pop <- read.csv("raw_data/census_county_population.csv")
 wages_q1_2020 <- read.csv("raw_data/6111.csv") 
 ```
 
+# Survey Graphs
+
+```{r}
+ipsos_survey <- readxl::read_xlsx("raw_data/ipsos_survey.xlsx")
+
+pie_data <- tibble(answer = c("Remote, virtual learning.", 
+                              "In-person learning."), values = c(0.66,0.34))
+
+pie_chart <- ggplot(pie_data, aes(x = "", y = values, fill = answer)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) + theme_void() +
+  scale_fill_brewer(palette="Accent", name = "Preference") 
+
+bar_chart_remote_data <- tibble(Question = c(
+  "I'm concerned about distance learning 
+  being an effective way for students to learn.", 
+  "I'm concerned that distance learning 
+  will create gaps in opportunities for my students."), Agree = c(0.81, 0.84))
+
+bar_chart_remote <- bar_chart_remote_data %>%
+  ggplot(aes(x = Question, y = Agree, fill = Agree)) + geom_col() + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) + 
+  theme_minimal() + theme(legend.position = "none") + 
+  labs(x = "", title = "Concerns about Remote Teaching", 
+       caption = "Source: Ipsos/NPR") + scale_fill_viridis_c(direction = -1,
+                                                             begin = 0.5,
+                                                             end = 0.9)
+
+bar_chart_inperson_data <- tibble(Question = c(
+  "I am concerned about risking my 
+  own health by returning to school.",
+  "I am concerned about 
+  accessing sufficient PPE 
+  and cleaning materials 
+  for in-person teaching.",
+  "I would struggle to enforce social
+  distancing among my students."), 
+  Agree = c(0.77, 0.78, 0.84))
+
+bar_chart_inperson <- bar_chart_inperson_data %>%
+  ggplot(aes(x = fct_reorder(as.factor(Question), desc(Agree)), 
+             y = Agree, fill = Agree)) + geom_col() + 
+  scale_y_continuous(labels = scales::percent, limits = c(0, 1)) + 
+  theme_minimal() + theme(legend.position = "none") + 
+  labs(x = "", y = "Agree/Likely", title = "Concerns about In-Person Teaching", 
+       caption = "Source: Ipsos/NPR") + scale_fill_viridis_c(direction = -1,
+                                                             begin = 0.5,
+                                                             end = 0.9)
+
+communication_chart_data <- tibble(
+  Question = c(rep("I have a voice in how my \nschool district responds \nto the COVID-19 pandemic.", 5),
+               rep("My school district has provided \nsufficient training or preparation \nfor the upcoming school year", 5)), 
+  Response = c(rep(c("Strongly agree", "Somewhat agree", 
+               "Somewhat disagree", "Strongly disagree", 
+               "Don't know"), 2)),
+  Value = c(0.08, 0.32, 0.32, 0.27, 0.01, 
+            0.09, 0.28, 0.35, 0.26, 0.02)) %>%
+  mutate(ResponseValue = paste(Response, (Value * 100), sep = ": "))
+
+saveRDS(pie_data, "pie_data.RDS")
+
+districtComms <- ggplot(communication_chart_data, 
+       aes(fill = Response, y = Value, x = Question)) + 
+    geom_bar(position="fill", stat="identity") + 
+  scale_y_continuous(labels = scales::percent) + theme_minimal() + 
+  labs(x = "", y = "Response", title = "Support from School District",
+        caption = "Source: Ipsos/NPR") + 
+  geom_text(aes(label = paste(ResponseValue, "%", sep = "")), size = 3,
+            position = position_stack(vjust = 0.5), color = "white") +
+  theme(legend.position = "none") + scale_fill_viridis_d(end = 0.9)
+
+
+
+```
+
+
 # Model
 
 
@@ -161,11 +237,23 @@ regions <- tibble(state.name, state.region) %>%
   rename(state = "state.name") %>%
   mutate(state.region = ifelse(state.region == "North Central", "Midwest", as.character(state.region)))
 
-final_fit_data <- left_join(final_sample_data_binomial, regions, 
+final_fit_data <- left_join(final_sample_data, regions, 
                             by = "state") %>%
   rename(`COVID Rate` = "rate",
          Region = "state.region")
 
+final_fit_table <- final_fit_data %>%
+  select(school.district, covid.restriction, `COVID Rate`, 
+         Region, county, state) %>%
+  group_by(county) %>%
+  summarize(`Mean COVID Restriction Level`= mean(covid.restriction, na.rm = TRUE), 
+            `Mean COVID Daily Rate of Change (Per Capita)` = 
+              mean(`COVID Rate`, na.rm = TRUE),
+            `School District` = first(school.district), County = first(county), 
+            State = first(state), Region = first(Region), .groups = "drop") %>%
+  select(-county)
+
+saveRDS(final_fit_table, "rds_data/district_samples_table.RDS")
 set.seed(9)
 
 fit2 <- stan_glm(formula = covid.restriction ~ `COVID Rate` + Region - 1,
