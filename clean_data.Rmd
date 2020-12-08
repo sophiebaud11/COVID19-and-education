@@ -155,6 +155,9 @@ wages_q1_2020 <- read.csv("raw_data/6111.csv")
 # Survey Graphs
 
 ```{r}
+
+# make graphs based on ipsos survey data
+
 ipsos_survey <- readxl::read_xlsx("raw_data/ipsos_survey.xlsx")
 
 pie_data <- tibble(answer = c("Remote, virtual learning.", 
@@ -232,6 +235,9 @@ districtComms <- ggplot(communication_chart_data,
 
 
 ```{r}
+
+# build the model
+
 data(state)
 regions <- tibble(state.name, state.region) %>%
   rename(state = "state.name") %>%
@@ -295,8 +301,7 @@ print(fit2, digits = 5)
 
 mean(final_sample_data_binomial$rate, na.rm = TRUE)
 
-#exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita #number))/(1+exp(intercept OR trump/biden if -1  + Median for predictor*(case per capita 
-# number)) this calculates P(Y = 1) (aka fully remote)
+# test the probability calculations
                                                                                       
 exp(-3.81122 + (-0.22950 * (0.01))) / (1 + exp(-3.81122 + (-0.22950 * (0.01))))
  

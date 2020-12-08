@@ -30,16 +30,21 @@ pie_data <- readRDS("rds_data/pie_data.RDS")
 bar_chart_inperson_data <- readRDS("rds_data/bar_chart_inperson_data.RDS")
 bar_chart_remote_data <- readRDS("rds_data/bar_chart_remote_data.RDS")
 communication_chart_data <- readRDS("rds_data/communication_chart_data.RDS")
-
 fit2 <- readRDS("rds_data/fit.RDS")
 
 
 
 
 ui <- navbarPage("The Impact of COVID-19 on Education",
+                 
+    # add UI for intro page
+    
     tabPanel("Introduction",
              fluidPage(
                  titlePanel("Introduction"),
+                 
+                 # add text of varying sizes
+                 
                  h3("Teachers and students across the U.S. are currently 
                  facing the impacts of COVID-19 on education."),
                  h5("Even before the pandemic, the experience of educators 
@@ -49,6 +54,10 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
                  plans, many teachers have had to tackle the challenge of 
                  interacting with students in person as safely as 
                  possible—often without hazard pay."),
+                 
+                 # create a row where users can toggle the maps they see based
+                 # on whether or not they contain sampled data
+                 
                  fluidRow(
                      column(3, 
                             selectInput("sampled", "Sampled?",
@@ -61,6 +70,8 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
                  ),
                  
                  fluidRow(
+                   
+                   # plot the maps in a row below the toggle buttons
                      
                      column(12,
                             plotOutput("maps")
@@ -87,12 +98,20 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
              capita rate of change."),
              mainPanel(
                  tabsetPanel(
+                   
+                   # place the regression table highlighting the model output
+                   # in the first tab of the tabset panel
+                   
                      tabPanel("Output", 
                               fluidRow(
                                   column(12, style = "margin:15px",
                                          gt_output("regTable")
                                   ))
                               ),
+                     
+                     # place text elucidating the interpretation of the model
+                     # in the second tab
+                     
                      tabPanel("Interpretation", 
                               fluidRow(
                                   column(12, style = "margin:15px",
@@ -102,6 +121,12 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
                  )
              ),
              sidebarPanel(
+               
+               # create a sidebar panel in which to store the interactive
+               # prediction generator, so users can enter a daily rate of change
+               # for covid cases and a region before generating the probability
+               # that a school district under those conditions will be virtual.
+               
                  h3("Application"),
                  h5("Try entering the mean rate of change: 1.28. Then,
                     generate the probability the district will require all
@@ -116,10 +141,16 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
                  span(textOutput("value"), style="font-weight: bold")
                  )
              ),
+    
+    #  create a panel to store the data visualizations from the educator survey
+    
     tabPanel("Educator Survey",
              titlePanel("What do Educators Think?"),
              h3("In an August NPR/Ipsos poll, K-12 teachers were surveyed
                 about the upcoming semester."),
+             
+             # in a tabset panel, store each graph based on topic
+             
              mainPanel(width = 12,
                  tabsetPanel(
                    tabPanel("Reopening Preference", style = "margin:15px",
@@ -157,6 +188,9 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
                https://github.com/sophiebaud11/COVID19-and-education."),
              h3("Further Reading"),
              p("Check out these links to read more about this topic:"),
+             
+             # this uiOutup holds the list of links
+             
              uiOutput("myList"),
              h3("About Me"),
              p("My name is Sophie Bauder and I study History & Literature,
@@ -168,8 +202,8 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
 
 server <- function(input, output) {
     
-  # create 2 reactive objects which responds to the user's selection in the 
-  # input "view", and calls the relevant reactive object as a result.
+  # create 4 graphs (sampld & not) and a switch function which responds to the 
+  # user'ssselection in the input "view" to call the relevant graphs.
   
   graphs <- reactive({
     sample1 <- county_wage_map %>%
@@ -245,6 +279,7 @@ server <- function(input, output) {
                                nrow = 1)
     )
   })
+  
     # run function to calculate probability based on model output & user input
     
     probability <- reactive({
@@ -268,11 +303,9 @@ server <- function(input, output) {
     })
     
     
-    # for the outputted plot, call the "graph" reactive objects!
+    # to generate the outputted plot, call the "graphs" reactive object!
     
     output$maps <- renderPlot({
-      
-      # use ggarrange to get rid of double usage of input$sampled
       
         graphs()
     })
@@ -281,18 +314,25 @@ server <- function(input, output) {
     
     output$table <- renderDataTable(district_samples_table)
     
+    # render a gt regression table to highlight the model output
+    
     output$regTable <- render_gt(
         expr = tbl_regression(fit2, intercept = TRUE) %>% 
             as_gt() %>%
             tab_header(title = "Regression of Public School COVID Restrictions",
-                       subtitle = "Impact of Rate of Change for County COVID-19 per 
-               Capita on Restrictions") %>% 
+                       subtitle = "Impact of Rate of Change for County COVID-19 
+                       per Capita on Restrictions") %>% 
             tab_source_note(md("Source: NY Times, local school websites.")),
         height = px(600),
         width = px(600)
     )
+    
+    # call the probability function to generate probability based on user 
+    # input
 
     output$value <- renderText({probability()})
+    
+    # render text for the model interpretation
     
     output$interp <- 
     renderText("This model output is surprising—it implies that as COVID-19 
@@ -312,6 +352,8 @@ server <- function(input, output) {
     has enormous impacts on educators and students alike, so further research
     is necessary to better understand the conditions of school reopenings.")
     
+    # render pie chart for the remote/in person preference graph
+    
     output$preferencePie <- renderPlot(
       ggplot(pie_data, aes(x = "", y = values, fill = answer)) +
         geom_bar(stat="identity", width=1, color="white") +
@@ -324,6 +366,8 @@ server <- function(input, output) {
               legend.text = element_text(size = 12),
               legend.title = element_text(size = 14))
     )
+    
+    # render bar chart highlighting teacher concerns about in person learning
     
     output$inpersonConcern <- renderPlot(
       ggplot(bar_chart_inperson_data,
@@ -340,6 +384,8 @@ server <- function(input, output) {
         scale_fill_viridis_c(direction = -1, begin = 0.5, end = 0.9)
     )
     
+    # render bar chart highlighting teacher concerns about remote learning
+    
     output$remoteConcern <- renderPlot(
       ggplot(bar_chart_remote_data,
              aes(x = Question, y = Agree, fill = Agree)) + geom_col() + 
@@ -352,6 +398,8 @@ server <- function(input, output) {
              caption = "Source: Ipsos/NPR") + 
         scale_fill_viridis_c(direction = -1, begin = 0.5, end = 0.9)
     )
+    
+    # render bar chart highlighting teacher concerns about district support
     
     output$districtComms <- renderPlot(
       ggplot(communication_chart_data, 
@@ -368,6 +416,9 @@ server <- function(input, output) {
               plot.title = element_text(size = 15, face = "bold")) + 
         scale_fill_viridis_d(end = 0.9)
     )
+    
+    # render unordered list of further reading links
+    
     output$myList <- renderUI(HTML("<ul><li><a href = 
     'https://www.ipsos.com/en-us/news-polls/NPR-teachers-covid-poll-080620'>
     NPR/Ipsos survey.</a></li><li>
