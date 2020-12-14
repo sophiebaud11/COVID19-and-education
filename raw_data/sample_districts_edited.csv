@@ -1,0 +1,45 @@
+GISJOIN,STATE,STATEA,SDUNI,SDUNIA,AJWME001,AJWMM001,county_fips,fips_code,subregion,state,state.name,state_county
+G01000990,Alabama,1,Cullman City School District,990,14755,430,1043,1043,cullman,AL,Alabama,alabamacullman
+G08005730,Colorado,8,Moffat County School District RE-1,5730,13060,0,8081,8081,moffat,CO,Colorado,coloradomoffat
+G09000960,Connecticut,9,Coventry School District,960,12422,32,9013,9013,tolland,CT,Connecticut,connecticuttolland
+G13000750,Georgia,13,Calhoun County School District,750,6428,0,13037,13037,calhoun,GA,Georgia,georgiacalhoun
+G17041980,Illinois,17,Westmont Community Unit School District 201,41980,12840,700,17043,17043,du page,IL,Illinois,illinoisdu page
+G19031860,Iowa,19,Winterset Community School District,31860,9336,428,19121,19121,madison,IA,Iowa,iowamadison
+G20004500,Kansas,20,Cedar Vale Unified School District 285,4500,967,116,20019,20019,chautauqua,KS,Kansas,kansaschautauqua
+G25005400,Massachusetts,25,Granby School District,5400,6333,17,25015,25015,hampshire,MA,Massachusetts,massachusettshampshire
+G28001200,Mississippi,28,Columbus Municipal School District,1200,31549,1005,28087,28087,lowndes,MS,Mississippi,mississippilowndes
+G28001710,Mississippi,28,Gulfport School District,1710,37827,1022,28047,28047,harrison,MS,Mississippi,mississippiharrison
+G28004470,Mississippi,28,Vicksburg Warren School District,4470,47075,0,28149,28149,warren,MS,Mississippi,mississippiwarren
+G29023160,Missouri,29,Orchard Farm R-V School District,23160,12590,619,29183,29183,st charles,MO,Missouri,missourist charles
+G31000165,Nebraska,31,Douglas County West Community Schools,165,5814,247,31055,31055,douglas,NE,Nebraska,nebraskadouglas
+G34003270,New Jersey,34,Cliffside Park Borough School District,3270,24883,45,34003,34003,bergen,NJ,New Jersey,new jerseybergen
+G34008580,New Jersey,34,Lincoln Park Borough School District,8580,10339,18,34027,34027,morris,NJ,New Jersey,new jerseymorris
+G34018090,New Jersey,34,Woodbine Borough School District,18090,2490,254,34009,34009,cape may,NJ,New Jersey,new jerseycape may
+G36000008,New York,36,South Country Central School District,8,31137,1306,36103,36103,suffolk,NY,New York,new yorksuffolk
+G36010260,New York,36,Edmeston Central School District,10260,2909,251,36077,36077,otsego,NY,New York,new yorkotsego
+G36011860,New York,36,Garrison Union Free School District,11860,2592,387,36079,36079,putnam,NY,New York,new yorkputnam
+G36031710,New York,36,Hewlett-Woodmere Union Free School District,31710,19096,1250,36059,36059,nassau,NY,New York,new yorknassau
+G38003790,North Dakota,38,Carrington Public School District 10,3790,3032,179,38031,38031,foster,ND,North Dakota,north dakotafoster
+G39004648,Ohio,39,River View Local School District,4648,15555,634,39031,39031,coshocton,OH,Ohio,ohiocoshocton
+G39004705,Ohio,39,Evergreen Local School District,4705,7426,403,39051,39051,fulton,OH,Ohio,ohiofulton
+G40006330,Oklahoma,40,Cameron Public Schools,6330,2318,220,40079,40079,le flore,OK,Oklahoma,oklahomale flore
+G40025170,Oklahoma,40,Prue Public Schools,25170,2762,241,40113,40113,osage,OK,Oklahoma,oklahomaosage
+G40028350,Oklahoma,40,Springer Public Schools,28350,1277,151,40019,40019,carter,OK,Oklahoma,oklahomacarter
+G42003840,Pennsylvania,42,Bloomsburg Area School District,3840,20241,251,42037,42037,columbia,PA,Pennsylvania,pennsylvaniacolumbia
+G42008460,Pennsylvania,42,Eastern Lebanon County School District,8460,21760,207,42075,42075,lebanon,PA,Pennsylvania,pennsylvanialebanon
+G42013080,Pennsylvania,42,Lakeview School District,13080,8093,265,42085,42085,mercer,PA,Pennsylvania,pennsylvaniamercer
+G48008700,Texas,48,Arlington Independent School District,8700,359491,2814,48439,48439,tarrant,TX,Texas,texastarrant
+G48017460,Texas,48,Douglass Independent School District,17460,2022,418,48347,48347,nacogdoches,TX,Texas,texasnacogdoches
+G48040950,Texas,48,Southwest Independent School District,40950,60720,2622,48029,48029,bexar,TX,Texas,texasbexar
+G53003510,Washington,53,Highland School District,3510,6325,579,53077,53077,yakima,WA,Washington,washingtonyakima
+G53003990,Washington,53,Kettle Falls School District,3990,5397,461,53065,53065,stevens,WA,Washington,washingtonstevens
+G53007320,Washington,53,Richland School District,7320,71084,888,53005,53005,benton,WA,Washington,washingtonbenton
+G55000120,Wisconsin,55,Albany School District,120,3060,197,55045,55045,green,WI,Wisconsin,wisconsingreen
+G55014130,Wisconsin,55,Southern Door County School District,14130,7537,225,55029,55029,door,WI,Wisconsin,wisconsindoor
+G13004800,Georgia,13,Taylor County School District,4800,8193,0,13269,13269,taylor,GA,Georgia,georgiataylor
+G18003930,Indiana,18,Goshen Community Schools,3930,37579,35,18039,18039,elkhart,IN,Indiana,indianaelkhart
+G26006870,Michigan,26,Brighton Area Schools,6870,37786,694,26093,26093,livingston,MI,Michigan,michiganlivingston
+G26028170,Michigan,26,Pinconning Area Schools,28170,12207,361,26017,26017,bay,MI,Michigan,michiganbay
+G31077190,Nebraska,31,Sterling Public Schools,77190,1258,119,31097,31097,johnson,NE,Nebraska,nebraskajohnson
+G39010026,Ohio,39,Clay Local School District,10026,3516,18,39145,39145,scioto,OH,Ohio,ohioscioto
+G48018600,Texas,48,Era Independent School District,18600,2053,326,48097,48097,cooke,TX,Texas,texascooke

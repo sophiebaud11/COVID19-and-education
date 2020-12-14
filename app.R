@@ -1,11 +1,5 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
+
+# load in necessary libraries
 
 library(shiny)
 library(tidyverse)
@@ -43,24 +37,25 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
              fluidPage(
                  titlePanel("Introduction"),
                  
-                 # add text of varying sizes
+                 # add text of varying sizes to introduce the project
                  
                  h3("Teachers and students across the U.S. are currently 
                  facing the impacts of COVID-19 on education."),
                  h5("Even before the pandemic, the experience of educators 
                  (here measured by compensation) varied widely county by 
-                 county; the pandemic has only exacerbated that inequity, with 
-                 school reopening plans differing between districts. Under these
-                 plans, many teachers have had to tackle the challenge of 
-                 interacting with students in person as safely as 
+                 county; the pandemic has only exacerbated that inequality, 
+                 with school reopening plans differing between districts. 
+                 Under these plans, many teachers have had to tackle the 
+                 challenge of interacting with students in person as safely as 
                  possible—often without hazard pay."),
                  
                  # create a row where users can toggle the maps they see based
-                 # on whether or not they contain sampled data
+                 # on whether or not they solely show the sampled counties
                  
                  fluidRow(
                      column(3, 
-                            selectInput("sampled", "Sampled?",
+                            selectInput("sampled", 
+                                        "Show only sampled counties?",
                               c("Yes", "No"))),
                      column(3, style="margin-top:10px",
                             submitButton(" Generate Maps", 
@@ -71,7 +66,7 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
                  
                  fluidRow(
                    
-                   # plot the maps in a row below the toggle buttons
+                   # plot the maps below the toggle buttons
                      
                      column(12,
                             plotOutput("maps")
@@ -86,9 +81,8 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
              titlePanel("List of Sample Districts and their Counties"),
              dataTableOutput('table')),
     
-    # Create a new panel the user can access in the navigation bar which will
-    # ultimately discuss the models. I am still collecting data and building 
-    # models, so I did not yet feel comfortable filling out this page!
+    # create a  panel the user can access in the navigation bar with a
+    # presentation & discussion of my model. 
     
     tabPanel("Model",
              titlePanel("Model Output, Interpretation, and Application"),
@@ -122,22 +116,23 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
              ),
              sidebarPanel(
                
-               # create a sidebar panel in which to store the interactive
-               # prediction generator, so users can enter a daily rate of change
-               # for covid cases and a region before generating the probability
+               # create a sidebar panel in which the interactive prediction
+               # generator is stored, so users can enter a daily rate of change
+               # for COVID-19 cases and a region to generate the probability
                # that a school district under those conditions will be virtual.
                
                  h3("Application"),
-                 h5("Try entering the mean rate of change: 1.28. Then,
-                    generate the probability the district will require all
-                    classes will be taught virtually."),
+                 h5("Try entering the mean rate of change: 1.28. Then, select
+                    a region to generate the probability the district will 
+                    require all classes to be taught virtually."),
                  numericInput("rateInput", "Enter a Daily Rate of Change:", 0),
                  selectInput("region", "Enter a Region:", c("Northeast",
                                                             "Midwest",
                                                             "West",
                                                             "South")),
                  submitButton("Generate Probability", icon("refresh")),
-                 h4("Probability the district will be virtual:"),
+                 h4("Probability the district will operate entirely 
+                    virtually:"),
                  span(textOutput("value"), style="font-weight: bold")
                  )
              ),
@@ -146,7 +141,7 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
     
     tabPanel("Educator Survey",
              titlePanel("What do Educators Think?"),
-             h3("In an August NPR/Ipsos poll, K-12 teachers were surveyed
+             h3("In an August 2020 NPR/Ipsos poll, K-12 teachers were surveyed
                 about the upcoming semester."),
              
              # in a tabset panel, store each graph based on topic
@@ -169,7 +164,7 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
               )
     ),
 
-    # Create another panel for the "About" page. Here, I list introductory 
+    # create another panel for the "About" page with additional 
     # information about my project & myself.
     
     tabPanel("About", 
@@ -178,8 +173,8 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
              p("This project aims to examine the impacts of the COVID-19 
              pandemic on education, focusing on the experiences of educators.
                Teachers have taken on a great deal during this pandemic,
-               with added responsibilities (childcare, teaching virtually,
-               and more). I hope this project will shed light on some oft he
+               with added responsibilities for childcare, teaching virtually,
+               and more. I hope this project will shed light on some of the
                challenges facing public education and educators amidst the 
                pandemic—and how some districts have tackled those 
                challenges—using data."),
@@ -189,7 +184,7 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
              h3("Further Reading"),
              p("Check out these links to read more about this topic:"),
              
-             # this uiOutup holds the list of links
+             # this uiOutup holds the list of further reading links
              
              uiOutput("myList"),
              h3("About Me"),
@@ -202,10 +197,21 @@ ui <- navbarPage("The Impact of COVID-19 on Education",
 
 server <- function(input, output) {
     
-  # create 4 graphs (sampld & not) and a switch function which responds to the 
-  # user'ssselection in the input "view" to call the relevant graphs.
+  # create 4 graphs (sampled & not) and a switch function which responds to the 
+  # user's selection in the input "view" to call the relevant graphs.
   
   graphs <- reactive({
+      
+    # each of these blocks of code creates a map of the United States (with
+    # either only the sampled counties or all counties for which there's data,
+    # depending on the user's selection in the "view" input). in each map,
+    # set the fill to the data point being presented (either Weekly Wage for
+    # those employed in Educational Services or COVID Cases per Capita). change
+    # the fill color between the two topics to differentiate them, and style 
+    # the text so that it's easily readable.
+      
+    # map of educational service wages in sampled counties 
+      
     sample1 <- county_wage_map %>%
       mutate(avg_wkly_wage_all = ifelse(state_county %in% 
                                           district_samples$state_county,
@@ -222,6 +228,9 @@ server <- function(input, output) {
       labs(title = " Average Weekly Wages for Educators per County", 
            subtitle = " Limited to Sampled Counties",
            caption = "Source: Bureau of Labor Statistics ")
+    
+    # map of COVID-19 cases per capita as of 11/29/20 in sampled counties 
+    
     sample2 <- county_covid_map %>%
       mutate(cases_per_capita = ifelse(state_county %in% 
                                          district_samples$state_county,
@@ -241,6 +250,9 @@ server <- function(input, output) {
            subtitle = " Limited to Sampled Counties",
            caption = "Source: New York Times ")
     
+    # map of weekly wages for educational services in all counties with 
+    # available data
+    
     nosample1 <- county_wage_map %>%
       ggplot(aes(long, lat, group = group)) +
       geom_polygon(aes(fill = avg_wkly_wage_all)) + theme_void() +
@@ -254,6 +266,9 @@ server <- function(input, output) {
             legend.title = element_text(color = "black", face = "bold")) + 
       labs(title = " Average Weekly Wages for Educators per County", 
            caption = "Source: Bureau of Labor Statistics ")
+    
+    # map of COVID cases per capita as of 11/29/20 in all counties with 
+    # available data
     
     nosample2 <- county_covid_map %>%
       ggplot(aes(long, lat, group = group)) + 
@@ -270,8 +285,15 @@ server <- function(input, output) {
              "COVID-19 Cases per Capita by County, as of 11/29/20", 
            caption = "Source: New York Times ")
     
+    # store these graphs in two lists so they can be accessed in the switch 
+    # function
+    
     sample_graphs <- list(sample1, sample2)
     nosample_graphs <- list(nosample1, nosample2)
+    
+    # based on the user input, switch between displaying the graphs of sampled
+    # counties versus those of all counties
+    
     switch(input$sampled,
            "Yes" = grid.arrange(grobs = lapply(sample_graphs, ggplotGrob), 
                                 nrow = 1),
@@ -283,6 +305,10 @@ server <- function(input, output) {
     # run function to calculate probability based on model output & user input
     
     probability <- reactive({
+        
+        # store region coefficients in the beta_zero object depending on 
+        # user input
+        
         if (input$region == "Midwest") {
             beta_zero = -3.81122
           }
@@ -296,9 +322,17 @@ server <- function(input, output) {
           beta_zero = -2.86936
         }
         
+        # calculate probability
+        
         x <- 100 * (exp(beta_zero + (-0.22950 * (input$rateInput))) / 
                         (1 + exp(beta_zero + (-0.22950 * (input$rateInput)))))
+        
+        # store a shortened version of the probability in object x_short
+        
         x_short <- signif(x, digits = 3)
+        
+        # add a percentage sign to x_short
+        
         paste(x_short, "%", sep = "")
     })
     
@@ -317,6 +351,10 @@ server <- function(input, output) {
     # render a gt regression table to highlight the model output
     
     output$regTable <- render_gt(
+        
+        # print the gt regression table of the model output with the specified
+        # height, width, and labels
+        
         expr = tbl_regression(fit2, intercept = TRUE) %>% 
             as_gt() %>%
             tab_header(title = "Regression of Public School COVID Restrictions",
@@ -347,7 +385,7 @@ server <- function(input, output) {
     However, while my samples were taken randomly, my model is limited in 
     sample size and may be skewed by that limitation, so this model should be 
     taken more as an impetus to examine the conditions under which schools are 
-    likely to reopen in-person learning than as a comprehensive predictor for
+    likely to reopen virtually than as a comprehensive predictor for
     school reopenings. As indicated in the Educators Survey tab, this decision 
     has enormous impacts on educators and students alike, so further research
     is necessary to better understand the conditions of school reopenings.")
@@ -355,66 +393,94 @@ server <- function(input, output) {
     # render pie chart for the remote/in person preference graph
     
     output$preferencePie <- renderPlot(
-      ggplot(pie_data, aes(x = "", y = values, fill = answer)) +
-        geom_bar(stat="identity", width=1, color="white") +
-        coord_polar("y", start=0) + theme_void() +
-        scale_fill_viridis_d(direction = -1, begin = 0.5, end = 0.9, 
-                             name = "Preference")  + 
-        labs(title = "Reopening Preference: Virtual vs. In Person Learning",
-             caption = "Source: Ipsos/NPR") +
-        theme(plot.title = element_text(size = 15, face = "bold"),
-              legend.text = element_text(size = 12),
-              legend.title = element_text(size = 14))
+        
+        # render a pie chart visualizing the preference data on virtual and 
+        # in person reopening for the 2020 fall semester using geom_bar and 
+        # coord_polar to make the bars take the form of a circle.
+        
+        ggplot(pie_data, aes(x = "", y = values, fill = answer)) +
+            geom_bar(stat="identity", width=1, color="white") +
+            coord_polar("y", start=0) + theme_void() +
+            scale_fill_viridis_d(direction = -1, begin = 0.5, end = 0.9, 
+                                 name = "Preference")  + 
+            labs(title = 
+                     "Reopening Preference: Virtual vs. In Person Learning",
+                 caption = "Source: Ipsos/NPR") +
+            theme(plot.title = element_text(size = 15, face = "bold"),
+                  legend.text = element_text(size = 12),
+                  legend.title = element_text(size = 14))
     )
     
     # render bar chart highlighting teacher concerns about in person learning
     
     output$inpersonConcern <- renderPlot(
-      ggplot(bar_chart_inperson_data,
-             aes(x = fct_reorder(as.factor(Question), desc(Agree)), 
-                 y = Agree, fill = Agree)) + geom_col() + 
-        scale_y_continuous(labels = scales::percent, limits = c(0, 1)) + 
-        theme_minimal() + theme(legend.position = "none", 
-                                axis.text = element_text(size = 12),
-                                axis.title = element_text(size = 14),
-                                plot.title = element_text(size = 15, 
-                                                          face = "bold")) + 
-        labs(x = "", y = "Agree/Likely", title = "Concerns about In-Person Teaching", 
-             caption = "Source: Ipsos/NPR") + 
-        scale_fill_viridis_c(direction = -1, begin = 0.5, end = 0.9)
+        
+        # create a basic bar chart displaying the data for survey questions
+        # regarding in person learning concerns, with the y-axis measured in 
+        # percentages.
+        
+        ggplot(bar_chart_inperson_data,
+                 aes(x = fct_reorder(as.factor(Question), desc(Agree)), 
+                     y = Agree, fill = Agree)) + geom_col() + 
+            scale_y_continuous(labels = scales::percent, limits = c(0, 1)) + 
+            theme_minimal() + theme(legend.position = "none", 
+                                    axis.text = element_text(size = 12),
+                                    axis.title = element_text(size = 14),
+                                    plot.title = element_text(size = 15, 
+                                                              face = "bold")) + 
+            labs(x = "", y = "Agree/Likely", 
+                 title = "Concerns about In-Person Teaching", 
+                 caption = "Source: Ipsos/NPR") + 
+            scale_fill_viridis_c(direction = -1, begin = 0.5, end = 0.9)
     )
     
     # render bar chart highlighting teacher concerns about remote learning
     
     output$remoteConcern <- renderPlot(
-      ggplot(bar_chart_remote_data,
+        
+        # create a basic bar chart displaying the data for survey questions
+        # regarding virtual learning concerns, with the y-axis measured in 
+        # percentages.
+        
+    
+        ggplot(bar_chart_remote_data,
              aes(x = Question, y = Agree, fill = Agree)) + geom_col() + 
-        scale_y_continuous(labels = scales::percent, limits = c(0, 1)) + 
-        theme_minimal() + theme(legend.position = "none", 
+          scale_y_continuous(labels = scales::percent, limits = c(0, 1)) + 
+          theme_minimal() + theme(legend.position = "none", 
                                 axis.text = element_text(size = 12),
                                 axis.title = element_text(size = 14),
-                                plot.title = element_text(size = 15)) + 
-        labs(x = "", title = "Concerns about Remote Teaching", 
+                                plot.title = element_text(size = 15,
+                                                          face = "bold")) + 
+          labs(x = "", title = "Concerns about Remote Teaching", 
              caption = "Source: Ipsos/NPR") + 
-        scale_fill_viridis_c(direction = -1, begin = 0.5, end = 0.9)
+          scale_fill_viridis_c(direction = -1, begin = 0.5, end = 0.9)
     )
     
     # render bar chart highlighting teacher concerns about district support
     
     output$districtComms <- renderPlot(
-      ggplot(communication_chart_data, 
+        
+        # create a basic bar chart displaying the data for survey questions
+        # regarding how teachers felt they were/were not supported by their 
+        # district, with the y-axis measured in percentages.
+        
+        
+        ggplot(communication_chart_data, 
              aes(fill = Response, y = Value, x = Question)) + 
-        geom_bar(position="fill", stat="identity", width = 0.7) + 
-        scale_y_continuous(labels = scales::percent) + theme_minimal() + 
-        labs(x = "", y = "Response", title = "Support from School District",
-             caption = "Source: Ipsos/NPR") + 
-        geom_text(aes(label = paste(ResponseValue, "%", sep = "")), size = 3,
-                  position = position_stack(vjust = 0.5), color = "white") +
-        theme(legend.position = "none", axis.text = element_text(size = 12,
-                                                                 face = "bold"),
-              axis.title = element_text(size = 14),
-              plot.title = element_text(size = 15, face = "bold")) + 
-        scale_fill_viridis_d(end = 0.9)
+            geom_bar(position="fill", stat="identity", width = 0.7) + 
+            scale_y_continuous(labels = scales::percent) + theme_minimal() + 
+            labs(x = "", y = "Response", 
+                 title = "Support from School District",
+                 caption = "Source: Ipsos/NPR") + 
+            geom_text(aes(label = paste(ResponseValue, "%", sep = "")), 
+                      size = 3,
+                      position = position_stack(vjust = 0.5), 
+                      color = "white") +
+            theme(legend.position = "none", 
+                  axis.text = element_text(size = 12),
+                  axis.title = element_text(size = 14),
+                  plot.title = element_text(size = 15, face = "bold")) + 
+            scale_fill_viridis_d(end = 0.9)
     )
     
     # render unordered list of further reading links
