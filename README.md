@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project will examine the impacts of COVID-19 on public education in the United States via an analysis of the reopening plans of dozens of randomly sampled school districts, and an analysis of surveys and articles recounting the experience of teachers across the country. Check it out at: https://sophie-bauder.shinyapps.io/final_project/.
+This project will examine the impacts of COVID-19 on public education in the United States via an analysis of the reopening plans of dozens of randomly sampled school districts, and an analysis of surveys and articles recounting the experience of teachers across the country. Check it out at: https://sophie-bauder.shinyapps.io/COVID19-and-Education/.
 
 ## Components
 
